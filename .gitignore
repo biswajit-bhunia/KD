@@ -1,0 +1,5 @@
+data/
+datasetv1/
+venv/
+checkpoints/
+__pycache__/

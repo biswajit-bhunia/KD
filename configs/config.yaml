@@ -1,0 +1,20 @@
+batch_size: 16
+learning_rate: 0.0003
+
+# Loss weights
+lambda_kd: 0.1
+lambda_supcon: 0.1
+lambda_grl: 0.05        # starting/floor value for GRL schedule
+max_lambda_grl: 0.3     # hard ceiling — GRL sigmoid ramps from ~0 to this over training
+
+# Temperatures
+temperature_kd: 4.0
+temperature_supcon: 0.07
+
+# ----- Federated Learning -----
+num_clients: 3            # number of federated clients
+num_rounds: 10            # number of federated rounds
+local_epochs: 3           # local training epochs per client per round
+clients_per_round: null   # null = all clients participate each round
+fedprox_mu: 0.01          # proximal term weight (0 = pure FedAvg)
+iid_partition: false      # false = non-IID (split by generator, realistic)
