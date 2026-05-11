@@ -16,6 +16,7 @@ from models.grl import GradientReversal
 from models.gen_classifier import GeneratorClassifier
 from losses.losses import ClassificationLoss, KDLoss, SupConLoss, GeneratorAdversarialLoss
 from losses.fedprox import FedProxLoss
+from utils.reproducibility import make_generator, seed_worker
 
 
 def _fmt_time(seconds):
@@ -46,6 +47,7 @@ class FederatedClient:
         device: torch.device,
         batch_size: int = 32,
         image_size: int = 256,
+        seed: int = 42,
     ):
         self.client_id = client_id
         self.samples = samples
@@ -60,14 +62,17 @@ class FederatedClient:
         labels = [s[1] for s in samples]
         counts = Counter(labels)
         weights = [1.0 / counts[l] for l in labels]
-        sampler = WeightedRandomSampler(weights, len(weights), replacement=True)
+        data_generator = make_generator(seed + client_id)
+        sampler = WeightedRandomSampler(weights, len(weights), replacement=True, generator=data_generator)
 
         self.dataloader = DataLoader(
             dataset,
             batch_size=batch_size,
             sampler=sampler,
             num_workers=2,
-            pin_memory=True
+            pin_memory=True,
+            worker_init_fn=seed_worker,
+            generator=data_generator,
         )
 
         self.num_samples = len(samples)
@@ -124,12 +129,17 @@ class FederatedClient:
         grl = GradientReversal(lambda_=lambda_grl)
 
         if self.num_generators > 0:
-            gen_head = GeneratorClassifier(
-                in_dim=student.mlp[0].out_features,
-                num_generators=self.num_generators
-            ).to(self.device)
-            gen_head.train()
-            gen_optimizer = torch.optim.Adam(gen_head.parameters(), lr=lr)
+            if not hasattr(self, "gen_head") or self.gen_head is None:
+                self.gen_head = GeneratorClassifier(
+                    in_dim=student.mlp[0].out_features,
+                    num_generators=self.num_generators
+                ).to(self.device)
+                # Apply the same 0.1x LR slowdown fix from centralized training
+                self.gen_optimizer = torch.optim.Adam(self.gen_head.parameters(), lr=lr * 0.1)
+            
+            self.gen_head.train()
+            gen_head = self.gen_head
+            gen_optimizer = self.gen_optimizer
         else:
             gen_head = None
             gen_optimizer = None
@@ -193,7 +203,10 @@ class FederatedClient:
                             )
                             loss_gen = gen_loss_fn(gen_logits, local_gen_ids)
                         else:
-                            loss_gen = torch.tensor(0.0, device=self.device)
+                            # Provide dummy loss connected to gen_head so optimizer receives gradients
+                            # This prevents the PyTorch AMP scaler from crashing when step() is called.
+                            dummy_in = torch.zeros(1, student.mlp[0].out_features, device=self.device)
+                            loss_gen = (gen_head(dummy_in) * 0.0).sum()
                     else:
                         loss_gen = torch.tensor(0.0, device=self.device)
 

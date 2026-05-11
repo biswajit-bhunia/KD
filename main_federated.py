@@ -20,7 +20,7 @@ from sklearn.model_selection import train_test_split
 # Data
 from data.dataset import DeepfakeDataset
 from data.loader import load_samples
-from data.split import split_samples
+from data.split import find_cross_split_duplicates, find_cross_split_near_duplicates, split_samples
 from data.partitioner import partition_by_generator, print_partition_stats
 
 # Models
@@ -40,6 +40,7 @@ from features.gradient import GradientExtractor
 
 # Utils
 from utils.checkpoint import save_checkpoint
+from utils.reproducibility import make_generator, seed_everything, seed_worker
 
 
 def _fmt_time(seconds):
@@ -77,12 +78,16 @@ def main():
 
     batch_size    = config["batch_size"]
     lr            = config["learning_rate"]
+    seed          = config.get("seed", 42)
+    deterministic = config.get("deterministic", False)
+    seed_everything(seed, deterministic=deterministic)
     lambda_kd     = config["lambda_kd"]
     lambda_supcon = config["lambda_supcon"]
     lambda_grl    = config["lambda_grl"]
     max_lambda_grl = config.get("max_lambda_grl", 0.3)
     temp_kd        = config.get("temperature_kd", 4.0)
     temp_supcon    = config.get("temperature_supcon", 0.07)
+    teacher_epochs = config.get("teacher_epochs", 5)
 
     # Federated params
     num_clients       = config.get("num_clients", 3)
@@ -123,22 +128,92 @@ def main():
     #     stratify=[s[1] for s in samples],
     #     random_state=42
     # )
-    train_samples, val_samples = split_samples(
+    # Previous two-way generator holdout still used validation as the final report set.
+    # train_samples, val_samples = split_samples(
+    #     samples,
+    #     test_size=0.2,
+    #     mode="generator_holdout",
+    #     random_state=42
+    # )
+    # Build name → ID mapping from loaded samples so config can use human-readable names
+    import os as _os
+    _gen_name_to_id = {}
+    for path, label, gen_id in samples:
+        if label == 1 and gen_id not in _gen_name_to_id.values():
+            gen_name = _os.path.basename(_os.path.dirname(path))
+            _gen_name_to_id[gen_name] = gen_id
+
+    def _resolve_generator(name_key):
+        name = config.get(name_key, None)
+        if name is None:
+            return None
+        if name not in _gen_name_to_id:
+            available = sorted(_gen_name_to_id.keys())
+            raise ValueError(f"Config '{name_key}: {name}' not found. Available: {available}")
+        return _gen_name_to_id[name]
+
+    val_gen_id  = _resolve_generator("val_generator_name")
+    test_gen_id = _resolve_generator("test_generator_name")
+
+    train_samples, val_samples, test_samples, split_info = split_samples(
         samples,
         test_size=0.2,
-        mode="generator_holdout",
-        random_state=42
+        mode="generator_holdout_3way",
+        holdout_generator_id=val_gen_id,
+        test_generator_id=test_gen_id,
+        random_state=seed
     )
-    print(f"  Train: {len(train_samples)} | Val: {len(val_samples)}")
+    print(f"  Train: {len(train_samples)} | Val: {len(val_samples)} | Test: {len(test_samples)}")
+    print(f"  Train fake generators: {', '.join(split_info['train_generators'])}")
+    print(f"  Val fake generator:    {split_info['val_generator']}")
+    print(f"  Test fake generator:   {split_info['test_generator']}")
+
+    duplicates = find_cross_split_duplicates({
+        "train": train_samples,
+        "val": val_samples,
+        "test": test_samples,
+    })
+    if duplicates:
+        print(f"  ⚠ Found {len(duplicates)} exact duplicate image hashes across splits.")
+        print(f"  ⚠ Example duplicate paths: {duplicates[0][2]}")
+    else:
+        print("  Exact duplicate check: no cross-split duplicates found.")
+
+    real_near_duplicates = find_cross_split_near_duplicates({
+        "train": [s for s in train_samples if s[1] == 0],
+        "val": [s for s in val_samples if s[1] == 0],
+        "test": [s for s in test_samples if s[1] == 0],
+    }, max_hamming_distance=1)
+    if real_near_duplicates:
+        print(f"  ⚠ Found {len(real_near_duplicates)} possible near-duplicate real-image pairs across splits.")
+        print(f"  ⚠ Example near-duplicate paths: {real_near_duplicates[0][1]}")
+    else:
+        print("  Real near-duplicate check: no likely cross-split duplicates found.")
 
     val_dataset = DeepfakeDataset(val_samples, augment=False)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=4,
+        worker_init_fn=seed_worker,
+        generator=make_generator(seed + 1),
+    )
+    test_dataset = DeepfakeDataset(test_samples, augment=False)
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=4,
+        worker_init_fn=seed_worker,
+        generator=make_generator(seed + 2),
+    )
 
     # ---------------------------
     # 3. Phase 1: Train Teacher Centrally
     # ---------------------------
     print(f"\n{'─'*60}")
-    print(f"  PHASE 1: Centralized Teacher Training (5 epochs)")
+    print(f"  PHASE 1: Centralized Teacher Pretraining ({teacher_epochs} epochs)")
     print(f"{'─'*60}")
 
     phase1_start = time.time()
@@ -156,14 +231,17 @@ def main():
     train_labels = [s[1] for s in train_samples]
     counts = Counter(train_labels)
     weights = [1.0 / counts[l] for l in train_labels]
-    sampler = WeightedRandomSampler(weights, len(weights), replacement=True)
+    teacher_generator = make_generator(seed)
+    sampler = WeightedRandomSampler(weights, len(weights), replacement=True, generator=teacher_generator)
 
     train_loader_full = DataLoader(
         train_dataset_full,
         batch_size=batch_size,
         sampler=sampler,
         num_workers=4,
-        pin_memory=True
+        pin_memory=True,
+        worker_init_fn=seed_worker,
+        generator=teacher_generator,
     )
 
     print(f"  Train batches: {len(train_loader_full)}")
@@ -173,7 +251,7 @@ def main():
         dataloader=train_loader_full,
         optimizer=teacher_opt,
         device=device,
-        epochs=5,
+        epochs=teacher_epochs,
         lambda_supcon=lambda_supcon
     )
 
@@ -215,7 +293,7 @@ def main():
         train_samples,
         num_clients=num_clients,
         iid=iid_partition,
-        seed=42
+        seed=seed
     )
     print_partition_stats(client_data)
     print(f"  Partitioned in {time.time() - partition_start:.2f}s")
@@ -234,6 +312,7 @@ def main():
             grad_model=grad_model,
             device=device,
             batch_size=batch_size,
+            seed=seed,
         )
         clients.append(client)
         gen_ids = sorted(client.local_generators)
@@ -259,7 +338,10 @@ def main():
         device=device,
         grad_extractor=grad_extractor,
         clients_per_round=clients_per_round,
+        seed=seed,
     )
+
+    best_federated_path = "checkpoints/student_federated_best.pth"
 
     history = server.run(
         num_rounds=num_rounds,
@@ -272,10 +354,28 @@ def main():
         mu=mu,
         temperature_kd=temp_kd,
         temperature_supcon=temp_supcon,
-        save_path="checkpoints/student_federated_best.pth",
+        save_path=best_federated_path,
     )
 
     phase2_time = time.time() - phase2_start
+
+    print("\n  Loading best federated checkpoint for final test evaluation...")
+    global_student.load_state_dict(torch.load(best_federated_path, map_location=device, weights_only=True))
+
+    print("\n  Calibrating final threshold on validation split...")
+    final_val_metrics = evaluate(global_student, val_loader, device, grad_extractor, calibrate_threshold=True)
+    print_metrics("  [Federated Val]", final_val_metrics)
+
+    print("\n  Final test evaluation using validation threshold...")
+    final_test_metrics = evaluate(
+        global_student,
+        test_loader,
+        device,
+        grad_extractor,
+        threshold=final_val_metrics["threshold"],
+        calibrate_threshold=False,
+    )
+    print_metrics("  [Federated Test]", final_test_metrics)
 
     # ---------------------------
     # 8. Final Summary
@@ -292,9 +392,10 @@ def main():
     print(f"  Total pipeline time:  {_fmt_time(total_time)}")
     print(f"")
     print(f"  Best round: {best_round + 1}/{num_rounds}")
-    print(f"  Best AUC:   {best_metrics['auc']:.4f}")
+    print(f"  Best Val AUC: {best_metrics['auc']:.4f}")
     print(f"  Best F1:    {best_metrics['f1']:.4f}")
     print(f"  Best Acc:   {best_metrics['accuracy']:.4f}")
+    print(f"  Test AUC:   {final_test_metrics['auc']:.4f}")
     print(f"")
     print(f"  Run `python main.py` for centralized comparison.")
     print(f"{'='*60}\n")

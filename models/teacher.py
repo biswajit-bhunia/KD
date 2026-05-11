@@ -103,7 +103,7 @@ class TeacherModel(nn.Module):
         self.mlp = nn.Sequential(
             nn.Linear(fused_dim, embed_dim),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.2)
+            nn.Dropout(0.5)
         )
 
         # Classifier

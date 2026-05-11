@@ -1,0 +1,336 @@
+PS C:\Users\sayan\OneDrive\Desktop\federated-deepfake> python .\main.py
+
+============================================================
+  Centralized Deepfake Detection Pipeline
+  Device: cuda | Batch: 16 | LR: 0.0003
+  λ_kd: 0.1 | λ_sc: 0.1 | λ_grl: 0.05
+============================================================
+
+  Loading dataset...
+  Loaded 18124 samples (5890 real, 12234 fake, 9 generators) in 11.4s
+  Train: 12611 | Val: 2159 | Test: 3257
+  Train fake generators: DALL-E, DeepFaceLab, Face2Face, FaceShifter, FaceSwap, Midjourney, NeuralTextures
+  Val fake generator:    StyleGAN
+  Test fake generator:   Stable Diffusion
+  Exact duplicate check: no cross-split duplicates found.
+  Real near-duplicate check: no likely cross-split duplicates found.
+  Train batches: 789 | Val batches: 135 | Test batches: 204
+
+  Initializing models...
+  Teacher: 11,700,578 params | Student: 1,012,034 params
+  Models initialized in 0.6s
+
+────────────────────────────────────────────────────────────
+  STAGE 1: Training Teacher (5 epochs)
+────────────────────────────────────────────────────────────
+    [Teacher] Epoch 1/5 | Batch 197/789 (25%) | Loss: 0.5454 | Elapsed: 47.9s
+    [Teacher] Epoch 1/5 | Batch 394/789 (50%) | Loss: 0.5136 | Elapsed: 1m 10s
+    [Teacher] Epoch 1/5 | Batch 591/789 (75%) | Loss: 0.5028 | Elapsed: 1m 33s
+    [Teacher] Epoch 1/5 | Batch 788/789 (100%) | Loss: 0.4913 | Elapsed: 1m 56s
+    [Teacher] Epoch 1/5 | Batch 789/789 (100%) | Loss: 0.4929 | Elapsed: 1m 56s
+  [Teacher] Epoch 1/5 done | Loss: 0.4929 | LR: 0.000272 | Time: 1m 58s | ETA: 7m 52s
+    [Teacher] Epoch 2/5 | Batch 197/789 (25%) | Loss: 0.4494 | Elapsed: 42.4s
+    [Teacher] Epoch 2/5 | Batch 394/789 (50%) | Loss: 0.4475 | Elapsed: 1m 5s
+    [Teacher] Epoch 2/5 | Batch 591/789 (75%) | Loss: 0.4445 | Elapsed: 1m 28s
+    [Teacher] Epoch 2/5 | Batch 788/789 (100%) | Loss: 0.4440 | Elapsed: 1m 50s
+    [Teacher] Epoch 2/5 | Batch 789/789 (100%) | Loss: 0.4437 | Elapsed: 1m 50s
+  [Teacher] Epoch 2/5 done | Loss: 0.4437 | LR: 0.000200 | Time: 1m 52s | ETA: 5m 36s
+    [Teacher] Epoch 3/5 | Batch 197/789 (25%) | Loss: 0.4298 | Elapsed: 41.8s
+    [Teacher] Epoch 3/5 | Batch 394/789 (50%) | Loss: 0.4284 | Elapsed: 1m 4s
+    [Teacher] Epoch 3/5 | Batch 591/789 (75%) | Loss: 0.4267 | Elapsed: 1m 27s
+    [Teacher] Epoch 3/5 | Batch 788/789 (100%) | Loss: 0.4272 | Elapsed: 1m 50s
+    [Teacher] Epoch 3/5 | Batch 789/789 (100%) | Loss: 0.4269 | Elapsed: 1m 50s
+  [Teacher] Epoch 3/5 done | Loss: 0.4269 | LR: 0.000110 | Time: 1m 51s | ETA: 3m 42s
+  ✓ [Teacher] Health check passed (Epoch 3) — LR, loss, and components look normal.
+
+    [Teacher] Epoch 4/5 | Batch 197/789 (25%) | Loss: 0.4191 | Elapsed: 40.5s
+    [Teacher] Epoch 4/5 | Batch 394/789 (50%) | Loss: 0.4147 | Elapsed: 1m 3s
+    [Teacher] Epoch 4/5 | Batch 591/789 (75%) | Loss: 0.4156 | Elapsed: 1m 26s
+    [Teacher] Epoch 4/5 | Batch 788/789 (100%) | Loss: 0.4149 | Elapsed: 1m 48s
+    [Teacher] Epoch 4/5 | Batch 789/789 (100%) | Loss: 0.4146 | Elapsed: 1m 48s
+  [Teacher] Epoch 4/5 done | Loss: 0.4146 | LR: 0.000038 | Time: 1m 49s | ETA: 1m 49s
+    [Teacher] Epoch 5/5 | Batch 197/789 (25%) | Loss: 0.4161 | Elapsed: 41.2s
+    [Teacher] Epoch 5/5 | Batch 394/789 (50%) | Loss: 0.4109 | Elapsed: 1m 4s
+    [Teacher] Epoch 5/5 | Batch 591/789 (75%) | Loss: 0.4095 | Elapsed: 1m 26s
+    [Teacher] Epoch 5/5 | Batch 788/789 (100%) | Loss: 0.4085 | Elapsed: 1m 49s
+    [Teacher] Epoch 5/5 | Batch 789/789 (100%) | Loss: 0.4083 | Elapsed: 1m 49s
+  [Teacher] Epoch 5/5 done | Loss: 0.4083 | LR: 0.000010 | Time: 1m 50s | ETA: 0.0s
+  [Teacher] Training complete in 9m 22s
+
+  Evaluating teacher...
+    [Eval] Batch 67/135 (50%) | Elapsed: 23.6s
+    [Eval] Batch 135/135 (100%) | Elapsed: 28.6s
+    [Eval] Complete (2159 samples in 29.5s)
+    [Eval] Threshold: 0.054 (val-calibrated; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.5382 | Rec=0.0110 | F1=0.0216
+    [Eval] At t=0.054: Acc=0.7786 | Rec=0.8180 | F1=0.7739 ← using this
+  [Teacher] | Acc: 0.7786 | Prec: 0.7343 | Rec: 0.8180 | F1: 0.7739 | AUC: 0.8371
+  → Saved teacher checkpoint (AUC=0.8371)
+  → Stage 1 complete in 9m 51s
+
+────────────────────────────────────────────────────────────
+  STAGE 2: Training Student with KD (12 epochs)
+────────────────────────────────────────────────────────────
+    [Student KD] Epoch 1/12 | Batch 197/789 (25%) | Loss: 0.9995 | Elapsed: 1m 14s
+    [Student KD] Epoch 1/12 | Batch 394/789 (50%) | Loss: 0.9500 | Elapsed: 2m 7s
+    [Student KD] Epoch 1/12 | Batch 591/789 (75%) | Loss: 0.9080 | Elapsed: 3m 0s
+    [Student KD] Epoch 1/12 | Batch 788/789 (100%) | Loss: 0.8831 | Elapsed: 3m 53s
+    [Student KD] Epoch 1/12 | Batch 789/789 (100%) | Loss: 0.8826 | Elapsed: 3m 53s
+  [Student KD] Epoch 1/12 done | CE: 0.5428 | KD: 0.6596 | SupCon: 2.7382 | Total: 0.8826 | LR: 0.000295 | Time: 3m 55s | ETA: 43m 10s
+    [Student KD] Epoch 2/12 | Batch 197/789 (25%) | Loss: 0.7869 | Elapsed: 1m 13s
+    [Student KD] Epoch 2/12 | Batch 394/789 (50%) | Loss: 0.7704 | Elapsed: 2m 6s
+    [Student KD] Epoch 2/12 | Batch 591/789 (75%) | Loss: 0.7633 | Elapsed: 2m 59s
+    [Student KD] Epoch 2/12 | Batch 788/789 (100%) | Loss: 0.7628 | Elapsed: 3m 52s
+    [Student KD] Epoch 2/12 | Batch 789/789 (100%) | Loss: 0.7629 | Elapsed: 3m 52s
+  [Student KD] Epoch 2/12 done | CE: 0.4521 | KD: 0.4794 | SupCon: 2.6289 | Total: 0.7629 | LR: 0.000281 | Time: 3m 53s | ETA: 38m 53s
+    [Student KD] Epoch 3/12 | Batch 197/789 (25%) | Loss: 0.7499 | Elapsed: 1m 11s
+    [Student KD] Epoch 3/12 | Batch 394/789 (50%) | Loss: 0.7383 | Elapsed: 2m 4s
+    [Student KD] Epoch 3/12 | Batch 591/789 (75%) | Loss: 0.7358 | Elapsed: 2m 57s
+    [Student KD] Epoch 3/12 | Batch 788/789 (100%) | Loss: 0.7303 | Elapsed: 3m 50s
+    [Student KD] Epoch 3/12 | Batch 789/789 (100%) | Loss: 0.7297 | Elapsed: 3m 50s
+  [Student KD] Epoch 3/12 done | CE: 0.4276 | KD: 0.4314 | SupCon: 2.5897 | Total: 0.7297 | LR: 0.000258 | Time: 3m 51s | ETA: 34m 41s
+  ✓ [Student KD] Health check passed (Epoch 3) — LR, loss, and components look normal.
+
+  📊 Mid-training validation (Epoch 3)...
+    [Eval] Batch 67/135 (50%) | Elapsed: 28.7s
+    [Eval] Batch 135/135 (100%) | Elapsed: 39.6s
+    [Eval] Complete (2159 samples in 40.5s)
+    [Eval] Threshold: 0.026 (val-calibrated; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.5368 | Rec=0.0000 | F1=0.0000
+    [Eval] At t=0.026: Acc=0.7471 | Rec=0.9030 | F1=0.7679 ← using this
+  📊 AUC: 0.8273 | Acc: 0.7471 | Rec: 0.9030 | F1: 0.7679
+  📊 ✓ First checkpoint — AUC: 0.8273
+    [Student KD] Epoch 4/12 | Batch 197/789 (25%) | Loss: 0.7082 | Elapsed: 1m 11s
+    [Student KD] Epoch 4/12 | Batch 394/789 (50%) | Loss: 0.7054 | Elapsed: 2m 3s
+    [Student KD] Epoch 4/12 | Batch 591/789 (75%) | Loss: 0.7027 | Elapsed: 2m 56s
+    [Student KD] Epoch 4/12 | Batch 788/789 (100%) | Loss: 0.6977 | Elapsed: 3m 49s
+    [Student KD] Epoch 4/12 | Batch 789/789 (100%) | Loss: 0.6981 | Elapsed: 3m 49s
+  [Student KD] Epoch 4/12 done | CE: 0.4046 | KD: 0.3843 | SupCon: 2.5514 | Total: 0.6981 | LR: 0.000227 | Time: 3m 50s | ETA: 30m 47s
+    [Student KD] Epoch 5/12 | Batch 197/789 (25%) | Loss: 0.7004 | Elapsed: 1m 10s
+    [Student KD] Epoch 5/12 | Batch 394/789 (50%) | Loss: 0.6863 | Elapsed: 2m 3s
+    [Student KD] Epoch 5/12 | Batch 591/789 (75%) | Loss: 0.6885 | Elapsed: 2m 56s
+    [Student KD] Epoch 5/12 | Batch 788/789 (100%) | Loss: 0.6874 | Elapsed: 3m 49s
+    [Student KD] Epoch 5/12 | Batch 789/789 (100%) | Loss: 0.6880 | Elapsed: 3m 49s
+  [Student KD] Epoch 5/12 done | CE: 0.3977 | KD: 0.3718 | SupCon: 2.5313 | Total: 0.6880 | LR: 0.000193 | Time: 3m 50s | ETA: 26m 54s
+    [Student KD] Epoch 6/12 | Batch 197/789 (25%) | Loss: 0.6651 | Elapsed: 1m 11s
+    [Student KD] Epoch 6/12 | Batch 394/789 (50%) | Loss: 0.6612 | Elapsed: 2m 4s
+    [Student KD] Epoch 6/12 | Batch 591/789 (75%) | Loss: 0.6576 | Elapsed: 2m 57s
+    [Student KD] Epoch 6/12 | Batch 788/789 (100%) | Loss: 0.6577 | Elapsed: 3m 50s
+    [Student KD] Epoch 6/12 | Batch 789/789 (100%) | Loss: 0.6582 | Elapsed: 3m 50s
+  [Student KD] Epoch 6/12 done | CE: 0.3755 | KD: 0.3295 | SupCon: 2.4976 | Total: 0.6582 | LR: 0.000155 | Time: 3m 51s | ETA: 23m 7s
+  ✓ [Student KD] Health check passed (Epoch 6) — LR, loss, and components look normal.
+
+  📊 Mid-training validation (Epoch 6)...
+    [Eval] Batch 67/135 (50%) | Elapsed: 28.2s
+    [Eval] Batch 135/135 (100%) | Elapsed: 38.9s
+    [Eval] Complete (2159 samples in 39.8s)
+    [Eval] Threshold: 0.073 (val-calibrated; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.5294 | Rec=0.0220 | F1=0.0415
+    [Eval] At t=0.073: Acc=0.7365 | Rec=0.8960 | F1=0.7590 ← using this
+  📊 AUC: 0.7862 | Acc: 0.7365 | Rec: 0.8960 | F1: 0.7590
+  📊 ✗ No improvement for 1/6 checks (best: 0.8273)
+    [Student KD] Epoch 7/12 | Batch 197/789 (25%) | Loss: 0.6597 | Elapsed: 1m 10s
+    [Student KD] Epoch 7/12 | Batch 394/789 (50%) | Loss: 0.6560 | Elapsed: 2m 5s
+    [Student KD] Epoch 7/12 | Batch 591/789 (75%) | Loss: 0.6444 | Elapsed: 3m 1s
+    [Student KD] Epoch 7/12 | Batch 788/789 (100%) | Loss: 0.6475 | Elapsed: 3m 57s
+    [Student KD] Epoch 7/12 | Batch 789/789 (100%) | Loss: 0.6475 | Elapsed: 3m 57s
+  [Student KD] Epoch 7/12 done | CE: 0.3681 | KD: 0.3166 | SupCon: 2.4774 | Total: 0.6475 | LR: 0.000117 | Time: 3m 58s | ETA: 19m 54s
+    [Student KD] Epoch 8/12 | Batch 197/789 (25%) | Loss: 0.6342 | Elapsed: 1m 21s
+    [Student KD] Epoch 8/12 | Batch 394/789 (50%) | Loss: 0.6290 | Elapsed: 2m 25s
+    [Student KD] Epoch 8/12 | Batch 591/789 (75%) | Loss: 0.6246 | Elapsed: 3m 29s
+    [Student KD] Epoch 8/12 | Batch 788/789 (100%) | Loss: 0.6217 | Elapsed: 4m 34s
+    [Student KD] Epoch 8/12 | Batch 789/789 (100%) | Loss: 0.6229 | Elapsed: 4m 34s
+  [Student KD] Epoch 8/12 done | CE: 0.3497 | KD: 0.2850 | SupCon: 2.4461 | Total: 0.6229 | LR: 0.000083 | Time: 4m 36s | ETA: 18m 24s
+    [Student KD] Epoch 9/12 | Batch 197/789 (25%) | Loss: 0.6217 | Elapsed: 1m 28s
+    [Student KD] Epoch 9/12 | Batch 394/789 (50%) | Loss: 0.6159 | Elapsed: 2m 33s
+    [Student KD] Epoch 9/12 | Batch 591/789 (75%) | Loss: 0.6186 | Elapsed: 3m 37s
+    [Student KD] Epoch 9/12 | Batch 788/789 (100%) | Loss: 0.6159 | Elapsed: 4m 41s
+    [Student KD] Epoch 9/12 | Batch 789/789 (100%) | Loss: 0.6158 | Elapsed: 4m 42s
+  [Student KD] Epoch 9/12 done | CE: 0.3442 | KD: 0.2732 | SupCon: 2.4421 | Total: 0.6158 | LR: 0.000052 | Time: 4m 43s | ETA: 14m 10s
+  ✓ [Student KD] Health check passed (Epoch 9) — LR, loss, and components look normal.
+
+  📊 Mid-training validation (Epoch 9)...
+    [Eval] Batch 67/135 (50%) | Elapsed: 34.9s
+    [Eval] Batch 135/135 (100%) | Elapsed: 48.1s
+    [Eval] Complete (2159 samples in 49.3s)
+    [Eval] Threshold: 0.035 (val-calibrated; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.5373 | Rec=0.0020 | F1=0.0040
+    [Eval] At t=0.035: Acc=0.7374 | Rec=0.9100 | F1=0.7625 ← using this
+  📊 AUC: 0.8097 | Acc: 0.7374 | Rec: 0.9100 | F1: 0.7625
+  📊 ✗ No improvement for 2/6 checks (best: 0.8273)
+    [Student KD] Epoch 10/12 | Batch 197/789 (25%) | Loss: 0.6039 | Elapsed: 1m 26s
+    [Student KD] Epoch 10/12 | Batch 394/789 (50%) | Loss: 0.5979 | Elapsed: 2m 31s
+    [Student KD] Epoch 10/12 | Batch 591/789 (75%) | Loss: 0.5971 | Elapsed: 3m 35s
+    [Student KD] Epoch 10/12 | Batch 788/789 (100%) | Loss: 0.5920 | Elapsed: 4m 39s
+    [Student KD] Epoch 10/12 | Batch 789/789 (100%) | Loss: 0.5915 | Elapsed: 4m 39s
+  [Student KD] Epoch 10/12 done | CE: 0.3268 | KD: 0.2431 | SupCon: 2.4040 | Total: 0.5915 | LR: 0.000029 | Time: 4m 41s | ETA: 9m 22s
+    [Student KD] Epoch 11/12 | Batch 197/789 (25%) | Loss: 0.5897 | Elapsed: 1m 27s
+    [Student KD] Epoch 11/12 | Batch 394/789 (50%) | Loss: 0.5890 | Elapsed: 2m 31s
+    [Student KD] Epoch 11/12 | Batch 591/789 (75%) | Loss: 0.5874 | Elapsed: 3m 36s
+    [Student KD] Epoch 11/12 | Batch 788/789 (100%) | Loss: 0.5889 | Elapsed: 4m 40s
+    [Student KD] Epoch 11/12 | Batch 789/789 (100%) | Loss: 0.5891 | Elapsed: 4m 40s
+  [Student KD] Epoch 11/12 done | CE: 0.3247 | KD: 0.2371 | SupCon: 2.4059 | Total: 0.5891 | LR: 0.000015 | Time: 4m 41s | ETA: 4m 41s
+    [Student KD] Epoch 12/12 | Batch 197/789 (25%) | Loss: 0.5933 | Elapsed: 1m 27s
+    [Student KD] Epoch 12/12 | Batch 394/789 (50%) | Loss: 0.5813 | Elapsed: 2m 31s
+    [Student KD] Epoch 12/12 | Batch 591/789 (75%) | Loss: 0.5818 | Elapsed: 3m 36s
+    [Student KD] Epoch 12/12 | Batch 788/789 (100%) | Loss: 0.5812 | Elapsed: 4m 40s
+    [Student KD] Epoch 12/12 | Batch 789/789 (100%) | Loss: 0.5807 | Elapsed: 4m 40s
+  [Student KD] Epoch 12/12 done | CE: 0.3191 | KD: 0.2276 | SupCon: 2.3891 | Total: 0.5807 | LR: 0.000010 | Time: 4m 42s | ETA: 0.0s
+  ✓ [Student KD] Health check passed (Epoch 12) — LR, loss, and components look normal.
+
+  📊 Mid-training validation (Epoch 12)...
+    [Eval] Batch 67/135 (50%) | Elapsed: 36.8s
+    [Eval] Batch 135/135 (100%) | Elapsed: 50.0s
+    [Eval] Complete (2159 samples in 51.2s)
+    [Eval] Threshold: 0.051 (val-calibrated; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.5405 | Rec=0.0300 | F1=0.0570
+    [Eval] At t=0.051: Acc=0.7318 | Rec=0.9120 | F1=0.7591 ← using this
+  📊 AUC: 0.7926 | Acc: 0.7318 | Rec: 0.9120 | F1: 0.7591
+  📊 ✗ No improvement for 3/6 checks (best: 0.8273)
+  [Student KD] Training complete in 53m 37s
+  [Student KD] Restoring best weights (AUC: 0.8273)
+
+  Evaluating student...
+    [Eval] Batch 67/135 (50%) | Elapsed: 35.2s
+    [Eval] Batch 135/135 (100%) | Elapsed: 47.3s
+    [Eval] Complete (2159 samples in 48.6s)
+    [Eval] Threshold: 0.026 (val-calibrated; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.5368 | Rec=0.0000 | F1=0.0000
+    [Eval] At t=0.026: Acc=0.7471 | Rec=0.9030 | F1=0.7679 ← using this
+  [Student KD] | Acc: 0.7471 | Prec: 0.6679 | Rec: 0.9030 | F1: 0.7679 | AUC: 0.8273
+  → Saved student checkpoint (AUC=0.8273)
+  → Stage 2 complete in 54m 26s
+
+────────────────────────────────────────────────────────────
+  STAGE 3: Training with GRL (10 epochs)
+────────────────────────────────────────────────────────────
+  → Number of train fake generators used for GRL: 7
+    [GRL] Epoch 1/10 | Batch 197/789 (25%) | Loss: 0.7424 | λ=0.01 | Elapsed: 1m 30s
+    [GRL] Epoch 1/10 | Batch 394/789 (50%) | Loss: 0.7415 | λ=0.01 | Elapsed: 2m 36s
+    [GRL] Epoch 1/10 | Batch 591/789 (75%) | Loss: 0.7342 | λ=0.01 | Elapsed: 3m 42s
+    [GRL] Epoch 1/10 | Batch 788/789 (100%) | Loss: 0.7273 | λ=0.01 | Elapsed: 4m 48s
+    [GRL] Epoch 1/10 | Batch 789/789 (100%) | Loss: 0.7267 | λ=0.01 | Elapsed: 4m 48s
+  [GRL] Epoch 1/10 done | Loss: 0.7267 | λ=0.01 | LR: 0.000293 | Time: 4m 50s | ETA: 43m 30s
+    [GRL] Epoch 2/10 | Batch 197/789 (25%) | Loss: 1.1188 | λ=0.23 | Elapsed: 1m 29s
+    [GRL] Epoch 2/10 | Batch 394/789 (50%) | Loss: 1.1142 | λ=0.23 | Elapsed: 2m 35s
+    [GRL] Epoch 2/10 | Batch 591/789 (75%) | Loss: 1.1178 | λ=0.23 | Elapsed: 3m 41s
+    [GRL] Epoch 2/10 | Batch 788/789 (100%) | Loss: 1.1137 | λ=0.23 | Elapsed: 4m 47s
+    [GRL] Epoch 2/10 | Batch 789/789 (100%) | Loss: 1.1138 | λ=0.23 | Elapsed: 4m 47s
+  [GRL] Epoch 2/10 done | Loss: 1.1138 | λ=0.23 | LR: 0.000272 | Time: 4m 49s | ETA: 38m 33s
+    [GRL] Epoch 3/10 | Batch 197/789 (25%) | Loss: 1.4188 | λ=0.38 | Elapsed: 1m 30s
+    [GRL] Epoch 3/10 | Batch 394/789 (50%) | Loss: 1.3945 | λ=0.38 | Elapsed: 2m 35s
+    [GRL] Epoch 3/10 | Batch 591/789 (75%) | Loss: 1.4022 | λ=0.38 | Elapsed: 3m 40s
+    [GRL] Epoch 3/10 | Batch 788/789 (100%) | Loss: 1.3983 | λ=0.38 | Elapsed: 4m 46s
+    [GRL] Epoch 3/10 | Batch 789/789 (100%) | Loss: 1.3978 | λ=0.38 | Elapsed: 4m 46s
+  [GRL] Epoch 3/10 done | Loss: 1.3978 | λ=0.38 | LR: 0.000240 | Time: 4m 47s | ETA: 33m 32s
+
+  ⚡ [GRL] Health Check (Epoch 3):
+    ⚠ Loss INCREASED by 0.2840 — training may be unstable.
+
+  📊 Mid-training validation (Epoch 3)...
+    [Eval] Batch 67/135 (50%) | Elapsed: 34.6s
+    [Eval] Batch 135/135 (100%) | Elapsed: 47.2s
+    [Eval] Complete (2159 samples in 48.4s)
+    [Eval] Threshold: 0.047 (val-calibrated; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.5373 | Rec=0.0050 | F1=0.0099
+    [Eval] At t=0.047: Acc=0.7920 | Rec=0.8860 | F1=0.7978 ← using this
+  📊 AUC: 0.8639 | Acc: 0.7920 | Rec: 0.8860 | F1: 0.7978
+  📊 ✓ First checkpoint — AUC: 0.8639
+    [GRL] Epoch 4/10 | Batch 197/789 (25%) | Loss: 3.4277 | λ=0.45 | Elapsed: 1m 29s
+    [GRL] Epoch 4/10 | Batch 394/789 (50%) | Loss: 4.4047 | λ=0.45 | Elapsed: 2m 35s
+    [GRL] Epoch 4/10 | Batch 591/789 (75%) | Loss: 4.1164 | λ=0.45 | Elapsed: 3m 41s
+    [GRL] Epoch 4/10 | Batch 788/789 (100%) | Loss: 4.0156 | λ=0.45 | Elapsed: 4m 47s
+    [GRL] Epoch 4/10 | Batch 789/789 (100%) | Loss: 4.0144 | λ=0.45 | Elapsed: 4m 47s
+  [GRL] Epoch 4/10 done | Loss: 4.0144 | λ=0.45 | LR: 0.000200 | Time: 4m 49s | ETA: 28m 54s
+    [GRL] Epoch 5/10 | Batch 197/789 (25%) | Loss: 3.9973 | λ=0.48 | Elapsed: 1m 28s
+    [GRL] Epoch 5/10 | Batch 394/789 (50%) | Loss: 4.0863 | λ=0.48 | Elapsed: 2m 33s
+    [GRL] Epoch 5/10 | Batch 591/789 (75%) | Loss: 4.1510 | λ=0.48 | Elapsed: 3m 38s
+    [GRL] Epoch 5/10 | Batch 788/789 (100%) | Loss: 4.2576 | λ=0.48 | Elapsed: 4m 44s
+    [GRL] Epoch 5/10 | Batch 789/789 (100%) | Loss: 4.2575 | λ=0.48 | Elapsed: 4m 44s
+  [GRL] Epoch 5/10 done | Loss: 4.2575 | λ=0.48 | LR: 0.000155 | Time: 4m 45s | ETA: 23m 47s
+    [GRL] Epoch 6/10 | Batch 197/789 (25%) | Loss: 4.5261 | λ=0.49 | Elapsed: 1m 29s
+    [GRL] Epoch 6/10 | Batch 394/789 (50%) | Loss: 4.5252 | λ=0.49 | Elapsed: 2m 34s
+    [GRL] Epoch 6/10 | Batch 591/789 (75%) | Loss: 4.5112 | λ=0.49 | Elapsed: 3m 40s
+    [GRL] Epoch 6/10 | Batch 788/789 (100%) | Loss: 4.4830 | λ=0.49 | Elapsed: 4m 46s
+    [GRL] Epoch 6/10 | Batch 789/789 (100%) | Loss: 4.4804 | λ=0.49 | Elapsed: 4m 46s
+  [GRL] Epoch 6/10 done | Loss: 4.4804 | λ=0.49 | LR: 0.000110 | Time: 4m 48s | ETA: 19m 12s
+  ⚠ [GRL] Epoch 6: Loss=4.4804 is very high — consider reducing max_lambda_grl (currently 0.5).
+
+  ⚡ [GRL] Health Check (Epoch 6):
+    ⚠ Loss INCREASED by 0.2229 — training may be unstable.
+
+  📊 Mid-training validation (Epoch 6)...
+    [Eval] Batch 67/135 (50%) | Elapsed: 37.7s
+    [Eval] Batch 135/135 (100%) | Elapsed: 50.0s
+    [Eval] Complete (2159 samples in 51.2s)
+    [Eval] Threshold: 0.150 (val-calibrated; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.5401 | Rec=0.0740 | F1=0.1297
+    [Eval] At t=0.150: Acc=0.6193 | Rec=0.9670 | F1=0.7017 ← using this
+  📊 AUC: 0.6818 | Acc: 0.6193 | Rec: 0.9670 | F1: 0.7017
+  📊 ✗ No improvement for 1/2 checks (best: 0.8639)
+    [GRL] Epoch 7/10 | Batch 197/789 (25%) | Loss: 4.1706 | λ=0.50 | Elapsed: 1m 29s
+    [GRL] Epoch 7/10 | Batch 394/789 (50%) | Loss: 4.1184 | λ=0.50 | Elapsed: 2m 35s
+    [GRL] Epoch 7/10 | Batch 591/789 (75%) | Loss: 4.0488 | λ=0.50 | Elapsed: 3m 41s
+    [GRL] Epoch 7/10 | Batch 788/789 (100%) | Loss: 3.9681 | λ=0.50 | Elapsed: 4m 47s
+    [GRL] Epoch 7/10 | Batch 789/789 (100%) | Loss: 3.9649 | λ=0.50 | Elapsed: 4m 47s
+  [GRL] Epoch 7/10 done | Loss: 3.9649 | λ=0.50 | LR: 0.000070 | Time: 4m 48s | ETA: 14m 25s
+    [GRL] Epoch 8/10 | Batch 197/789 (25%) | Loss: 3.6410 | λ=0.50 | Elapsed: 1m 31s
+    [GRL] Epoch 8/10 | Batch 394/789 (50%) | Loss: 3.5929 | λ=0.50 | Elapsed: 2m 37s
+    [GRL] Epoch 8/10 | Batch 591/789 (75%) | Loss: 3.5111 | λ=0.50 | Elapsed: 3m 43s
+    [GRL] Epoch 8/10 | Batch 788/789 (100%) | Loss: 3.4358 | λ=0.50 | Elapsed: 4m 49s
+    [GRL] Epoch 8/10 | Batch 789/789 (100%) | Loss: 3.4362 | λ=0.50 | Elapsed: 4m 49s
+  [GRL] Epoch 8/10 done | Loss: 3.4362 | λ=0.50 | LR: 0.000038 | Time: 4m 50s | ETA: 9m 41s
+    [GRL] Epoch 9/10 | Batch 197/789 (25%) | Loss: 3.0574 | λ=0.50 | Elapsed: 1m 29s
+    [GRL] Epoch 9/10 | Batch 394/789 (50%) | Loss: 3.0111 | λ=0.50 | Elapsed: 2m 35s
+    [GRL] Epoch 9/10 | Batch 591/789 (75%) | Loss: 2.9295 | λ=0.50 | Elapsed: 3m 41s
+    [GRL] Epoch 9/10 | Batch 788/789 (100%) | Loss: 2.8709 | λ=0.50 | Elapsed: 4m 47s
+    [GRL] Epoch 9/10 | Batch 789/789 (100%) | Loss: 2.8705 | λ=0.50 | Elapsed: 4m 47s
+  [GRL] Epoch 9/10 done | Loss: 2.8705 | λ=0.50 | LR: 0.000017 | Time: 4m 48s | ETA: 4m 48s
+  ⚠ [GRL] Epoch 9: Loss=2.8705 is very high — consider reducing max_lambda_grl (currently 0.5).
+  ✓ [GRL] Health check passed (Epoch 9) — LR, loss, and components look normal.
+
+  📊 Mid-training validation (Epoch 9)...
+    [Eval] Batch 67/135 (50%) | Elapsed: 35.2s
+    [Eval] Batch 135/135 (100%) | Elapsed: 48.3s
+    [Eval] Complete (2159 samples in 49.4s)
+    [Eval] Threshold: 0.136 (val-calibrated; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.5401 | Rec=0.0190 | F1=0.0369
+    [Eval] At t=0.136: Acc=0.6832 | Rec=0.9450 | F1=0.7343 ← using this
+  📊 AUC: 0.6656 | Acc: 0.6832 | Rec: 0.9450 | F1: 0.7343
+  📊 ✗ No improvement for 2/2 checks (best: 0.8639)
+  📊 ⚡ Early stopping triggered after 2 consecutive bad checks.
+  📊 Stopping at epoch 9/10
+  [GRL] Training complete in 45m 46s
+  [GRL] Restoring best weights (AUC: 0.8639)
+
+  Evaluating student (GRL) on validation for threshold calibration...
+    [Eval] Batch 67/135 (50%) | Elapsed: 34.9s
+    [Eval] Batch 135/135 (100%) | Elapsed: 47.7s
+    [Eval] Complete (2159 samples in 48.9s)
+    [Eval] Threshold: 0.047 (val-calibrated; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.5373 | Rec=0.0050 | F1=0.0099
+    [Eval] At t=0.047: Acc=0.7920 | Rec=0.8860 | F1=0.7978 ← using this
+  [GRL Val] | Acc: 0.7920 | Prec: 0.7256 | Rec: 0.8860 | F1: 0.7978 | AUC: 0.8639
+
+  Final test evaluation using validation threshold...
+    [Eval] Batch 102/204 (50%) | Elapsed: 42.6s
+    [Eval] Batch 204/204 (100%) | Elapsed: 63.2s
+    [Eval] Complete (3257 samples in 64.4s)
+    [Eval] Threshold: 0.047 (provided; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.5183 | Rec=0.2526 | F1=0.4032
+    [Eval] At t=0.047: Acc=0.7372 | Rec=0.7479 | F1=0.7857 ← using this
+  [GRL Test] | Acc: 0.7372 | Prec: 0.8275 | Rec: 0.7479 | F1: 0.7857 | AUC: 0.7983
+  → Saved final student checkpoint (Val AUC=0.8639 | Test AUC=0.7983)
+  → Stage 3 complete in 47m 40s
+  → New best student! AUC improved: 0.8273 → 0.8639
+
+============================================================
+  PIPELINE COMPLETE
+  Stage 1 (Teacher):     9m 51s
+  Stage 2 (Student KD):  54m 26s
+  Stage 3 (GRL):         47m 40s
+  Total pipeline time:   1h 52m 23s
+  Best Teacher AUC:      0.8371
+  Best Student Val AUC:  0.8639
+  Final Student Test AUC:0.7983
+============================================================

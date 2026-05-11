@@ -35,7 +35,14 @@ def find_optimal_threshold(labels, probs):
     return float(thresholds[best_idx]), float(f1_arr[best_idx])
 
 
-def evaluate(model, dataloader, device, grad_extractor=None):
+def evaluate(
+    model,
+    dataloader,
+    device,
+    grad_extractor=None,
+    threshold=None,
+    calibrate_threshold=True,
+):
     model.eval()
 
     all_preds  = []
@@ -77,18 +84,25 @@ def evaluate(model, dataloader, device, grad_extractor=None):
     labels_np = np.array(all_labels)
     probs_np = np.array(all_probs)
 
-    # Find optimal threshold (maximizes F1)
-    optimal_threshold, _ = find_optimal_threshold(labels_np, probs_np)
+    if threshold is not None:
+        active_threshold = float(threshold)
+        threshold_source = "provided"
+    elif calibrate_threshold:
+        active_threshold, _ = find_optimal_threshold(labels_np, probs_np)
+        threshold_source = "val-calibrated"
+    else:
+        active_threshold = 0.5
+        threshold_source = "default"
 
     # Compute metrics at BOTH thresholds
     preds_default  = (probs_np > 0.5).astype(int)
-    preds_optimal  = (probs_np > optimal_threshold).astype(int)
+    preds_active   = (probs_np > active_threshold).astype(int)
 
-    # Use optimal threshold for reported metrics
-    acc       = accuracy_score(labels_np, preds_optimal)
-    precision = precision_score(labels_np, preds_optimal, zero_division=0)
-    recall    = recall_score(labels_np, preds_optimal, zero_division=0)
-    f1        = f1_score(labels_np, preds_optimal, zero_division=0)
+    # Use active threshold for reported metrics
+    acc       = accuracy_score(labels_np, preds_active)
+    precision = precision_score(labels_np, preds_active, zero_division=0)
+    recall    = recall_score(labels_np, preds_active, zero_division=0)
+    f1        = f1_score(labels_np, preds_active, zero_division=0)
 
     try:
         auc = roc_auc_score(labels_np, probs_np)
@@ -101,11 +115,11 @@ def evaluate(model, dataloader, device, grad_extractor=None):
     f1_05   = f1_score(labels_np, preds_default, zero_division=0)
 
     print(f"    [Eval] Complete ({len(labels_np)} samples in {eval_time:.1f}s)")
-    print(f"    [Eval] Optimal threshold: {optimal_threshold:.3f} "
-          f"(vs default 0.5)  ⚠ val-calibrated — AUC is the reliable metric")
-    if abs(optimal_threshold - 0.5) > 0.05:
+    print(f"    [Eval] Threshold: {active_threshold:.3f} "
+          f"({threshold_source}; default 0.5)  AUC is threshold-free")
+    if abs(active_threshold - 0.5) > 0.05:
         print(f"    [Eval] At t=0.5:   Acc={acc_05:.4f} | Rec={rec_05:.4f} | F1={f1_05:.4f}")
-        print(f"    [Eval] At t={optimal_threshold:.3f}: Acc={acc:.4f} | Rec={recall:.4f} | F1={f1:.4f} ← using this")
+        print(f"    [Eval] At t={active_threshold:.3f}: Acc={acc:.4f} | Rec={recall:.4f} | F1={f1:.4f} ← using this")
 
     return {
         "accuracy":  acc,
@@ -113,5 +127,5 @@ def evaluate(model, dataloader, device, grad_extractor=None):
         "recall":    recall,
         "f1":        f1,
         "auc":       auc,
-        "threshold": optimal_threshold
+        "threshold": active_threshold
     }

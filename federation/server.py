@@ -49,7 +49,7 @@ class FederatedServer:
         self.clients_per_round = clients_per_round or len(clients)
         self.rng = random.Random(seed)
 
-        self.best_auc = 0.0
+        self.best_auc = -1.0
         self.round_history = []
 
     def run(

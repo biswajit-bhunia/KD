@@ -383,6 +383,13 @@ def train_with_grl(
 
     grad_extractor = GradientExtractor(grad_model).to(device)
 
+    train_generator_ids = sorted({s[2] for s in dataloader.dataset.samples if s[1] == 1})
+    gen_id_remap = {g: i for i, g in enumerate(train_generator_ids)}
+    if len(train_generator_ids) != num_generators:
+        print(f"  ⚠ [GRL] num_generators={num_generators} but train split has "
+              f"{len(train_generator_ids)} generators; using train split count.")
+    num_generators = len(train_generator_ids)
+
     gen_head = GeneratorClassifier(
         in_dim=student.mlp[0].out_features,
         num_generators=num_generators
@@ -399,7 +406,7 @@ def train_with_grl(
 
     gen_optimizer = torch.optim.Adam(
         gen_head.parameters(),
-        lr=base_lr  # use original lr, not the decayed value
+        lr=base_lr * 0.1  # slower than student to prevent adversarial dominance
     )
 
     student_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-5)
@@ -459,7 +466,16 @@ def train_with_grl(
                 if fake_mask.sum() > 0:
                     E_adv      = grl(student_out["embedding"][fake_mask])
                     gen_logits = gen_head(E_adv)
-                    gen_ids_fake = gen_ids[fake_mask] - 1
+                    gen_ids_fake_list = []
+                    for g in gen_ids[fake_mask]:
+                        g_val = g.item()
+                        if g_val not in gen_id_remap:
+                            raise ValueError(
+                                f"Unknown train gen_id={g_val} during GRL training. "
+                                f"Known generators: {gen_id_remap}"
+                            )
+                        gen_ids_fake_list.append(gen_id_remap[g_val])
+                    gen_ids_fake = torch.tensor(gen_ids_fake_list, dtype=torch.long, device=device)
                     loss_gen = gen_loss_fn(gen_logits, gen_ids_fake)
                 else:
                     # Provide dummy loss connected to gen_head so optimizer receives gradients

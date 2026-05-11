@@ -4,18 +4,27 @@ import torch.nn.functional as F
 
 
 # ---------------------------
-# 1. Standard Cross Entropy (with label smoothing)
+# 1. Focal Loss (with label smoothing)
 # ---------------------------
 class ClassificationLoss(nn.Module):
-    def __init__(self, label_smoothing=0.1):
+    def __init__(self, gamma=2.0, label_smoothing=0.1):
         super().__init__()
-        # Label smoothing prevents overconfident predictions by training
-        # against soft targets (e.g., 0.05/0.95 instead of 0/1).
-        # This produces better-calibrated probabilities and improves recall.
-        self.ce = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+        self.gamma = gamma
+        self.label_smoothing = label_smoothing
 
     def forward(self, logits, targets):
-        return self.ce(logits, targets)
+        # Calculate standard Cross Entropy loss without reducing to a mean yet
+        ce_loss = F.cross_entropy(logits, targets, reduction='none', label_smoothing=self.label_smoothing)
+        
+        # Calculate pt (the predicted probability of the true target class)
+        probs = torch.softmax(logits, dim=1)
+        pt = probs.gather(1, targets.unsqueeze(1)).squeeze(1)
+        
+        # Apply the Focal Loss focusing parameter: (1 - pt)^gamma
+        # This reduces the loss weight for examples the model is already confident about
+        focal_loss = ((1.0 - pt) ** self.gamma * ce_loss).mean()
+        
+        return focal_loss
 
 
 # ---------------------------
@@ -93,7 +102,7 @@ class SupConLoss(nn.Module):
 class GeneratorAdversarialLoss(nn.Module):
     def __init__(self):
         super().__init__()
-        self.ce = nn.CrossEntropyLoss()
+        self.ce = nn.CrossEntropyLoss(label_smoothing=0.1)
 
     def forward(self, gen_logits, gen_labels):
         """
