@@ -5,24 +5,24 @@ deterministic: false       # true is more reproducible but can be slower
 val_generator_name: "StyleGAN"           # held-out for validation (GAN-based, photorealistic)
 test_generator_name: "Stable Diffusion"  # held-out for final test (diffusion-based, photorealistic)
 # Training Epochs
-teacher_epochs: 15
+teacher_epochs: 10
 student_epochs: 15
-grl_epochs: 15
+grl_epochs: 10
 
 # Loss weights
-lambda_kd: 0.05
-lambda_supcon: 0.1
+lambda_kd: 0.3
+lambda_supcon: 0.03
 lambda_grl: 0.05        # starting/floor value for GRL schedule
-max_lambda_grl: 0.1     # hard ceiling — GRL sigmoid ramps from ~0 to this over training
+max_lambda_grl: 0.05     # hard ceiling — GRL sigmoid ramps from ~0 to this over training
 
 # Temperatures
 temperature_kd: 4.0
 temperature_supcon: 0.15
 
 # ----- Federated Learning -----
-num_clients: 3            # number of federated clients
+num_clients: 4            # number of federated clients
 num_rounds: 5            # number of federated rounds
-local_epochs: 3           # local training epochs per client per round
+local_epochs: 1           # local training epochs per client per round
 clients_per_round: null   # null = all clients participate each round
-fedprox_mu: 0.1          # proximal term weight (0 = pure FedAvg)
+fedprox_mu: 1.0          # proximal term weight (0 = pure FedAvg)
 iid_partition: false      # false = non-IID (split by generator, realistic)

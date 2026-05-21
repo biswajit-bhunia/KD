@@ -23,20 +23,26 @@ class FedProxLoss(nn.Module):
         super().__init__()
         self.mu = mu
 
-    def forward(self, local_model: nn.Module, global_params: dict) -> torch.Tensor:
-        """
-        Args:
-            local_model: the client's local model being trained
-            global_params: snapshot of global model state_dict (detached)
+    # def forward(self, local_model: nn.Module, global_params: dict) -> torch.Tensor:
+    #     proximal_term = torch.tensor(0.0, device=next(local_model.parameters()).device)
 
-        Returns:
-            proximal penalty scalar
-        """
-        proximal_term = torch.tensor(0.0, device=next(local_model.parameters()).device)
+    #     for name, param in local_model.named_parameters():
+    #         if param.requires_grad and name in global_params:
+    #             global_weight = global_params[name].to(param.device)
+    #             proximal_term += ((param - global_weight) ** 2).sum()
+
+    #     return (self.mu / 2.0) * proximal_term
+
+    def forward(self, local_model: nn.Module, global_params: dict) -> torch.Tensor:
+        device = next(local_model.parameters()).device
+        terms = []
 
         for name, param in local_model.named_parameters():
             if param.requires_grad and name in global_params:
-                global_weight = global_params[name].to(param.device)
-                proximal_term += ((param - global_weight) ** 2).sum()
+                global_weight = global_params[name].to(device).detach()
+                terms.append(((param - global_weight) ** 2).sum())
 
-        return (self.mu / 2.0) * proximal_term
+        if not terms:
+            return torch.tensor(0.0, device=device)
+
+        return (self.mu / 2.0) * torch.stack(terms).sum()

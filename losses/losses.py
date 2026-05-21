@@ -6,26 +6,51 @@ import torch.nn.functional as F
 # ---------------------------
 # 1. Focal Loss (with label smoothing)
 # ---------------------------
+# class ClassificationLoss(nn.Module):
+#     def __init__(self, gamma=2.0, label_smoothing=0.1):
+#         super().__init__()
+#         self.gamma = gamma
+#         self.label_smoothing = label_smoothing
+
+#     def forward(self, logits, targets):
+#         # Calculate standard Cross Entropy loss without reducing to a mean yet
+#         ce_loss = F.cross_entropy(logits, targets, reduction='none', label_smoothing=self.label_smoothing)
+        
+#         # Calculate pt (the predicted probability of the true target class)
+#         probs = torch.softmax(logits, dim=1)
+#         pt = probs.gather(1, targets.unsqueeze(1)).squeeze(1)
+        
+#         # Apply the Focal Loss focusing parameter: (1 - pt)^gamma
+#         # This reduces the loss weight for examples the model is already confident about
+#         focal_loss = ((1.0 - pt) ** self.gamma * ce_loss).mean()
+        
+#         return focal_loss
+
+
 class ClassificationLoss(nn.Module):
     def __init__(self, gamma=2.0, label_smoothing=0.1):
         super().__init__()
         self.gamma = gamma
         self.label_smoothing = label_smoothing
-
+ 
     def forward(self, logits, targets):
-        # Calculate standard Cross Entropy loss without reducing to a mean yet
-        ce_loss = F.cross_entropy(logits, targets, reduction='none', label_smoothing=self.label_smoothing)
-        
-        # Calculate pt (the predicted probability of the true target class)
-        probs = torch.softmax(logits, dim=1)
-        pt = probs.gather(1, targets.unsqueeze(1)).squeeze(1)
-        
-        # Apply the Focal Loss focusing parameter: (1 - pt)^gamma
-        # This reduces the loss weight for examples the model is already confident about
+        # Single forward pass: log_softmax covers both ce_loss and pt
+        log_probs = F.log_softmax(logits, dim=1)
+ 
+        # Cross-entropy with label smoothing (manual, to avoid a second softmax call)
+        num_classes = logits.size(1)
+        smooth = self.label_smoothing
+        # Smooth targets: (1 - ε) * one_hot + ε / C  →  uniform mix
+        with torch.no_grad():
+            smooth_targets = torch.full_like(log_probs, smooth / num_classes)
+            smooth_targets.scatter_(1, targets.unsqueeze(1), 1.0 - smooth + smooth / num_classes)
+        ce_loss = -(smooth_targets * log_probs).sum(dim=1)  # (B,)
+ 
+        # pt from the same log_probs — no redundant softmax
+        pt = log_probs.gather(1, targets.unsqueeze(1)).squeeze(1).exp()  # (B,)
+ 
         focal_loss = ((1.0 - pt) ** self.gamma * ce_loss).mean()
-        
         return focal_loss
-
 
 # ---------------------------
 # 2. Knowledge Distillation Loss

@@ -89,7 +89,8 @@ class FederatedServer:
             print(f"  Selected clients: {client_ids} ({total_samples} total samples)")
 
             # 2. Local training
-            global_state = copy.deepcopy(self.global_student.state_dict())
+            # Safely clone global state to CPU to free up GPU memory
+            global_state = {k: v.cpu().clone() for k, v in self.global_student.state_dict().items()}
             client_updates = []
 
             for i, client in enumerate(selected):
@@ -111,8 +112,14 @@ class FederatedServer:
                     temperature_supcon=temperature_supcon,
                 )
 
-                client_updates.append((local_state, client.num_samples))
+                # Move local state to CPU before appending to prevent GPU OOM
+                local_state_cpu = {k: v.cpu().clone() for k, v in local_state.items()}
+                client_updates.append((local_state_cpu, client.num_samples))
                 print(f"    └─ Client {client.client_id} complete")
+                
+                # Critical: Free up GPU memory for the next client
+                del local_state
+                torch.cuda.empty_cache()
 
             # 3. Aggregate
             agg_start = time.time()

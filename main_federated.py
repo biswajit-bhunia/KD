@@ -121,21 +121,6 @@ def main():
     print(f"  Loaded {len(samples)} samples ({n_real} real, {n_fake} fake, "
           f"{n_gens} generators) in {time.time() - load_start:.1f}s")
 
-    # Previous label-stratified split allowed the same fake generators in train and validation.
-    # train_samples, val_samples = train_test_split(
-    #     samples,
-    #     test_size=0.2,
-    #     stratify=[s[1] for s in samples],
-    #     random_state=42
-    # )
-    # Previous two-way generator holdout still used validation as the final report set.
-    # train_samples, val_samples = split_samples(
-    #     samples,
-    #     test_size=0.2,
-    #     mode="generator_holdout",
-    #     random_state=42
-    # )
-    # Build name → ID mapping from loaded samples so config can use human-readable names
     import os as _os
     _gen_name_to_id = {}
     for path, label, gen_id in samples:
