@@ -1,13 +1,25 @@
+"""
+Training functions for the dual-domain deepfake detection pipeline.
+
+Stage 1: Train Teacher (centralized)
+Stage 2: Train Student with multi-level KD (centralized)
+Stage 3: GRL-based generator invariance (optional, disabled by default)
+
+All stages use the unified forward signature:
+    model(x_rgb, x_forensic) → dict with "semantic_feat", "forensic_feat",
+                                        "embedding", "logits"
+"""
+
 import math
 import time
 import torch
 import torch.nn as nn
 
 from features.forensic import build_forensic_stack
-from features.gradient import GradientExtractor
 
 from models.grl import GradientReversal
 from models.gen_classifier import GeneratorClassifier
+from models.kd import MultiLevelKD
 
 from losses.losses import (
     ClassificationLoss,
@@ -41,13 +53,13 @@ def _fmt_time(seconds):
         return f"{int(h)}h {int(m)}m {int(s)}s"
 
 
-def _quick_validate(model, val_loader, device, grad_extractor=None):
+def _quick_validate(model, val_loader, device):
     """
     Run a fast validation pass and return AUC.
     Imports evaluate lazily to avoid circular imports.
     """
     from training.validate import evaluate
-    metrics = evaluate(model, val_loader, device, grad_extractor)
+    metrics = evaluate(model, val_loader, device)
     return metrics
 
 
@@ -168,7 +180,7 @@ def train_teacher(
 
 
 # ---------------------------
-# STAGE 2: Train Student (KD)
+# STAGE 2: Train Student (Multi-Level KD)
 # ---------------------------
 def train_student(
     student,
@@ -176,28 +188,34 @@ def train_student(
     dataloader,
     optimizer,
     device,
-    grad_model,
     epochs=5,
     lambda_kd=0.3,
+    lambda_feat_kd=0.5,
     lambda_supcon=0.2,
     val_loader=None,
-    grad_extractor_eval=None,
     val_every=3,
     patience=2,
     health_check_every=3,
     temperature_kd=4.0,
     temperature_supcon=0.07,
 ):
+    """
+    Train student with multi-level knowledge distillation from teacher.
+
+    KD pathways:
+      - Semantic feature KD (MSE)
+      - Forensic feature KD (MSE)
+      - Embedding KD (MSE)
+      - Logits KD (KL-div)
+    """
     cls_loss = ClassificationLoss()
-    kd_loss  = KDLoss(temperature=temperature_kd)
+    multi_kd = MultiLevelKD(temperature=temperature_kd)
     supcon   = SupConLoss(temperature=temperature_supcon)
 
     # Freeze teacher
     teacher.eval()
     for p in teacher.parameters():
         p.requires_grad = False
-
-    grad_extractor = GradientExtractor(grad_model).to(device)
 
     scaler = torch.amp.GradScaler(device.type, enabled=device.type == "cuda")
 
@@ -225,6 +243,7 @@ def train_student(
         total_loss = 0
         total_ce   = 0
         total_kd   = 0
+        total_feat = 0
         total_sup  = 0
 
         student.train()
@@ -237,23 +256,26 @@ def train_student(
 
             x_for = build_forensic_stack(x_rgb)
 
-            with torch.enable_grad():
-                x_grad = grad_extractor(x_rgb)
-
             with torch.no_grad():
                 teacher_out = teacher(x_rgb, x_for)
 
             with torch.amp.autocast(device.type, enabled=device.type == "cuda"):
-                student_out = student(x_for, x_grad)
+                student_out = student(x_rgb, x_for)
 
                 loss_ce  = cls_loss(student_out["logits"], labels)
-                loss_kd  = kd_loss(student_out["logits"], teacher_out["logits"])
+
+                # Multi-level KD
+                kd_losses = multi_kd(student_out, teacher_out)
+                loss_kd   = kd_losses["logits"]      # logits KD
+                loss_feat = kd_losses["total"]        # all feature-level KD
+
                 loss_sup = supcon(student_out["embedding"], labels)
 
                 loss = (
                     loss_ce
-                    + lambda_kd   * loss_kd
-                    + lambda_supcon * loss_sup
+                    + lambda_kd      * loss_kd
+                    + lambda_feat_kd * loss_feat
+                    + lambda_supcon  * loss_sup
                 )
 
             optimizer.zero_grad()
@@ -268,6 +290,7 @@ def train_student(
             total_loss += loss.item()
             total_ce   += loss_ce.item()
             total_kd   += loss_kd.item()
+            total_feat += loss_feat.item()
             total_sup  += loss_sup.item()
 
             # Batch progress (every 25% of batches)
@@ -287,6 +310,7 @@ def train_student(
         avg_loss_val = total_loss / n
         avg_ce = total_ce / n
         avg_kd = total_kd / n
+        avg_feat = total_feat / n
         avg_sup = total_sup / n
         lr_now = optimizer.param_groups[0]["lr"]
         remaining = epoch_time * (epochs - epoch - 1)
@@ -295,7 +319,8 @@ def train_student(
         print(
             f"  [Student KD] Epoch {epoch+1}/{epochs} done | "
             f"CE: {avg_ce:.4f} | KD: {avg_kd:.4f} | "
-            f"SupCon: {avg_sup:.4f} | Total: {avg_loss_val:.4f} | "
+            f"Feat: {avg_feat:.4f} | SupCon: {avg_sup:.4f} | "
+            f"Total: {avg_loss_val:.4f} | "
             f"LR: {lr_now:.6f} | Time: {_fmt_time(epoch_time)} | "
             f"ETA: {_fmt_time(remaining)}"
         )
@@ -308,7 +333,7 @@ def train_student(
         # Periodic validation & early stopping
         if val_loader is not None and (epoch + 1) % val_every == 0:
             print(f"  📊 Mid-training validation (Epoch {epoch+1})...")
-            metrics = _quick_validate(student, val_loader, device, grad_extractor_eval)
+            metrics = _quick_validate(student, val_loader, device)
             val_auc = metrics["auc"]
             print(f"  📊 AUC: {val_auc:.4f} | Acc: {metrics['accuracy']:.4f} | "
                   f"Rec: {metrics['recall']:.4f} | F1: {metrics['f1']:.4f}")
@@ -352,15 +377,14 @@ def train_with_grl(
     dataloader,
     optimizer,
     device,
-    grad_model,
     num_generators,
     epochs=5,
     lambda_kd=0.5,
+    lambda_feat_kd=0.5,
     lambda_supcon=0.1,
     base_lambda_grl=0.1,
     max_lambda_grl=0.3,
     val_loader=None,
-    grad_extractor_eval=None,
     val_every=3,
     patience=2,
     health_check_every=3,
@@ -370,9 +394,12 @@ def train_with_grl(
     """
     Returns the student optimizer (same object passed in, momentum preserved
     from Stage 2). A separate optimizer is created for the gen_head only.
+
+    NOTE: When lambda_grl=0.0 (default in new config), GRL contributes nothing
+    to the loss but the code path is preserved for backward compatibility.
     """
     cls_loss    = ClassificationLoss()
-    kd_loss     = KDLoss(temperature=temperature_kd)
+    multi_kd    = MultiLevelKD(temperature=temperature_kd)
     supcon      = SupConLoss(temperature=temperature_supcon)
     gen_loss_fn = GeneratorAdversarialLoss()
 
@@ -380,8 +407,6 @@ def train_with_grl(
     teacher.eval()
     for p in teacher.parameters():
         p.requires_grad = False
-
-    grad_extractor = GradientExtractor(grad_model).to(device)
 
     train_generator_ids = sorted({s[2] for s in dataloader.dataset.samples if s[1] == 1})
     gen_id_remap = {g: i for i, g in enumerate(train_generator_ids)}
@@ -391,7 +416,7 @@ def train_with_grl(
     num_generators = len(train_generator_ids)
 
     gen_head = GeneratorClassifier(
-        in_dim=student.mlp[0].out_features,
+        in_dim=student.embed_dim,
         num_generators=num_generators
     ).to(device)
 
@@ -449,17 +474,19 @@ def train_with_grl(
 
             x_for = build_forensic_stack(x_rgb)
 
-            with torch.enable_grad():
-                x_grad = grad_extractor(x_rgb)
-
             with torch.no_grad():
                 teacher_out = teacher(x_rgb, x_for)
 
             with torch.amp.autocast(device.type, enabled=device.type == "cuda"):
-                student_out = student(x_for, x_grad)
+                student_out = student(x_rgb, x_for)
 
                 loss_ce  = cls_loss(student_out["logits"], labels)
-                loss_kd  = kd_loss(student_out["logits"], teacher_out["logits"])
+
+                # Multi-level KD
+                kd_losses = multi_kd(student_out, teacher_out)
+                loss_kd   = kd_losses["logits"]
+                loss_feat = kd_losses["total"]
+
                 loss_sup = supcon(student_out["embedding"], labels)
 
                 fake_mask = (gen_ids > 0)
@@ -479,14 +506,15 @@ def train_with_grl(
                     loss_gen = gen_loss_fn(gen_logits, gen_ids_fake)
                 else:
                     # Provide dummy loss connected to gen_head so optimizer receives gradients
-                    dummy_in = torch.zeros(1, student.mlp[0].out_features, device=device)
+                    dummy_in = torch.zeros(1, student.embed_dim, device=device)
                     loss_gen = (gen_head(dummy_in) * 0).sum()
 
                 loss = (
                     loss_ce
-                    + lambda_kd     * loss_kd
-                    + lambda_supcon * loss_sup
-                    + lambda_grl    * loss_gen
+                    + lambda_kd      * loss_kd
+                    + lambda_feat_kd * loss_feat
+                    + lambda_supcon  * loss_sup
+                    + lambda_grl     * loss_gen
                 )
 
             optimizer.zero_grad()
@@ -540,7 +568,7 @@ def train_with_grl(
         # Periodic validation & early stopping
         if val_loader is not None and (epoch + 1) % val_every == 0:
             print(f"  📊 Mid-training validation (Epoch {epoch+1})...")
-            metrics = _quick_validate(student, val_loader, device, grad_extractor_eval)
+            metrics = _quick_validate(student, val_loader, device)
             val_auc = metrics["auc"]
             print(f"  📊 AUC: {val_auc:.4f} | Acc: {metrics['accuracy']:.4f} | "
                   f"Rec: {metrics['recall']:.4f} | F1: {metrics['f1']:.4f}")

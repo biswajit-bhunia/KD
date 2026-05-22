@@ -1,8 +1,19 @@
+"""
+Centralized Deepfake Detection — Training Entry Point
+
+This script runs the full 3-stage centralized pipeline:
+1. Stage 1: Train Teacher (ResNet-50 semantic + ResNet-18 forensic)
+2. Stage 2: Train Student with multi-level KD (MobileNetV2 semantic + CNN forensic)
+3. Stage 3: GRL generator invariance (optional, disabled by default with grl_epochs=0)
+
+Usage:
+    python main.py
+"""
+
 import time
 import yaml
 import torch
 from torch.utils.data import DataLoader, WeightedRandomSampler
-from torchvision.models import mobilenet_v3_small, MobileNet_V3_Small_Weights
 from collections import Counter
 from sklearn.model_selection import train_test_split
 
@@ -24,7 +35,6 @@ from training.train import (
 
 # Evaluation
 from training.validate import evaluate
-from features.gradient import GradientExtractor
 
 # Utils
 from utils.checkpoint import save_checkpoint
@@ -71,21 +81,22 @@ def main():
     seed_everything(seed, deterministic=deterministic)
 
     lambda_kd      = config["lambda_kd"]
+    lambda_feat_kd = config.get("lambda_feat_kd", 0.5)
     lambda_supcon  = config["lambda_supcon"]
     lambda_grl     = config["lambda_grl"]
-    max_lambda_grl = config.get("max_lambda_grl", 0.3)
+    max_lambda_grl = config.get("max_lambda_grl", 0.0)
     temp_kd        = config.get("temperature_kd", 4.0)
     temp_supcon    = config.get("temperature_supcon", 0.07)
     teacher_epochs = config.get("teacher_epochs", 5)
     student_epochs = config.get("student_epochs", 12)
-    grl_epochs     = config.get("grl_epochs", 10)
+    grl_epochs     = config.get("grl_epochs", 0)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print(f"\n{'='*60}")
-    print(f"  Centralized Deepfake Detection Pipeline")
+    print(f"  Centralized Deepfake Detection Pipeline (Dual-Domain)")
     print(f"  Device: {device} | Batch: {batch_size} | LR: {lr}")
-    print(f"  λ_kd: {lambda_kd} | λ_sc: {lambda_supcon} | λ_grl: {lambda_grl}")
+    print(f"  λ_kd: {lambda_kd} | λ_feat: {lambda_feat_kd} | λ_sc: {lambda_supcon} | λ_grl: {lambda_grl}")
     print(f"{'='*60}")
 
     # ---------------------------
@@ -95,20 +106,6 @@ def main():
     load_start = time.time()
     samples = load_samples("data/")
 
-    # Previous label-stratified split allowed the same fake generators in train and validation.
-    # train_samples, val_samples = train_test_split(
-    #     samples,
-    #     test_size=0.2,
-    #     stratify=[s[1] for s in samples],
-    #     random_state=42
-    # )
-    # Previous two-way generator holdout still used validation as the final report set.
-    # train_samples, val_samples = split_samples(
-    #     samples,
-    #     test_size=0.2,
-    #     mode="generator_holdout",
-    #     random_state=42
-    # )
     # Build name → ID mapping from loaded samples so config can use human-readable names
     import os as _os
     _gen_name_to_id = {}
@@ -222,11 +219,6 @@ def main():
     teacher = TeacherModel().to(device)
     student = StudentModel().to(device)
 
-    # MobileNetV3-Small: ~3-4x faster forward+backward than ResNet18,
-    # reduces gradient extraction bottleneck while preserving feature quality
-    grad_model     = mobilenet_v3_small(weights=MobileNet_V3_Small_Weights.IMAGENET1K_V1).to(device)
-    grad_extractor = GradientExtractor(grad_model).to(device)
-
     teacher_params = sum(p.numel() for p in teacher.parameters())
     student_params = sum(p.numel() for p in student.parameters())
     print(f"  Teacher: {teacher_params:,} params | Student: {student_params:,} params")
@@ -260,20 +252,20 @@ def main():
     metrics = evaluate(teacher, val_loader, device)
     print_metrics("  [Teacher]", metrics)
 
-    save_checkpoint(teacher, teacher_opt, epoch=5, path="checkpoints/teacher_stage1.pth")
+    save_checkpoint(teacher, teacher_opt, epoch=teacher_epochs, path="checkpoints/teacher_stage1.pth")
     best_teacher_auc = metrics["auc"]
     stage1_time = time.time() - stage1_start
     print(f"  → Saved teacher checkpoint (AUC={best_teacher_auc:.4f})")
     print(f"  → Stage 1 complete in {_fmt_time(stage1_time)}")
 
-    # Free GPU memory from Stage 1 before loading gradient extractor
+    # Free GPU memory from Stage 1
     torch.cuda.empty_cache()
 
     # ---------------------------
-    # 7. Stage 2: Train Student (KD)
+    # 7. Stage 2: Train Student (Multi-Level KD)
     # ---------------------------
     print(f"\n{'─'*60}")
-    print(f"  STAGE 2: Training Student with KD ({student_epochs} epochs)")
+    print(f"  STAGE 2: Training Student with Multi-Level KD ({student_epochs} epochs)")
     print(f"{'─'*60}")
 
     stage2_start = time.time()
@@ -283,12 +275,11 @@ def main():
         dataloader=train_loader,
         optimizer=student_opt,
         device=device,
-        grad_model=grad_model,
         epochs=student_epochs,
         lambda_kd=lambda_kd,
+        lambda_feat_kd=lambda_feat_kd,
         lambda_supcon=lambda_supcon,
         val_loader=val_loader,
-        grad_extractor_eval=grad_extractor,
         val_every=3,
         patience=6,
         temperature_kd=temp_kd,
@@ -296,10 +287,10 @@ def main():
     )
 
     print("\n  Evaluating student...")
-    metrics = evaluate(student, val_loader, device, grad_extractor)
+    metrics = evaluate(student, val_loader, device)
     print_metrics("  [Student KD]", metrics)
 
-    save_checkpoint(student, student_opt, epoch=12, path="checkpoints/student_stage2.pth")
+    save_checkpoint(student, student_opt, epoch=student_epochs, path="checkpoints/student_stage2.pth")
     best_student_auc = metrics["auc"]
     stage2_time = time.time() - stage2_start
     print(f"  → Saved student checkpoint (AUC={best_student_auc:.4f})")
@@ -309,60 +300,82 @@ def main():
     torch.cuda.empty_cache()
 
     # ---------------------------
-    # 8. Stage 3: Generator Invariance (GRL)
+    # 8. Stage 3: Generator Invariance (GRL) — Optional
     # ---------------------------
-    print(f"\n{'─'*60}")
-    print(f"  STAGE 3: Training with GRL ({grl_epochs} epochs)")
-    print(f"{'─'*60}")
+    if grl_epochs > 0:
+        print(f"\n{'─'*60}")
+        print(f"  STAGE 3: Training with GRL ({grl_epochs} epochs)")
+        print(f"{'─'*60}")
 
-    num_generators = len(set(s[2] for s in train_samples if s[1] == 1))
-    print(f"  → Number of train fake generators used for GRL: {num_generators}")
+        num_generators = len(set(s[2] for s in train_samples if s[1] == 1))
+        print(f"  → Number of train fake generators used for GRL: {num_generators}")
 
-    stage3_start = time.time()
-    student_opt_grl = train_with_grl(
-        student=student,
-        teacher=teacher,
-        dataloader=train_loader,
-        optimizer=student_opt,
-        device=device,
-        grad_model=grad_model,
-        num_generators=num_generators,
-        epochs=grl_epochs,
-        lambda_kd=lambda_kd,
-        lambda_supcon=lambda_supcon,
-        base_lambda_grl=lambda_grl,
-        max_lambda_grl=max_lambda_grl,
-        val_loader=val_loader,
-        grad_extractor_eval=grad_extractor,
-        val_every=3,
-        patience=2,
-        temperature_kd=temp_kd,
-        temperature_supcon=temp_supcon
-    )
+        stage3_start = time.time()
+        student_opt_grl = train_with_grl(
+            student=student,
+            teacher=teacher,
+            dataloader=train_loader,
+            optimizer=student_opt,
+            device=device,
+            num_generators=num_generators,
+            epochs=grl_epochs,
+            lambda_kd=lambda_kd,
+            lambda_feat_kd=lambda_feat_kd,
+            lambda_supcon=lambda_supcon,
+            base_lambda_grl=lambda_grl,
+            max_lambda_grl=max_lambda_grl,
+            val_loader=val_loader,
+            val_every=3,
+            patience=2,
+            temperature_kd=temp_kd,
+            temperature_supcon=temp_supcon
+        )
 
-    print("\n  Evaluating student (GRL) on validation for threshold calibration...")
-    metrics = evaluate(student, val_loader, device, grad_extractor, calibrate_threshold=True)
-    print_metrics("  [GRL Val]", metrics)
+        print("\n  Evaluating student (GRL) on validation for threshold calibration...")
+        metrics = evaluate(student, val_loader, device, calibrate_threshold=True)
+        print_metrics("  [GRL Val]", metrics)
 
-    print("\n  Final test evaluation using validation threshold...")
-    test_metrics = evaluate(
-        student,
-        test_loader,
-        device,
-        grad_extractor,
-        threshold=metrics["threshold"],
-        calibrate_threshold=False,
-    )
-    print_metrics("  [GRL Test]", test_metrics)
+        print("\n  Final test evaluation using validation threshold...")
+        test_metrics = evaluate(
+            student,
+            test_loader,
+            device,
+            threshold=metrics["threshold"],
+            calibrate_threshold=False,
+        )
+        print_metrics("  [GRL Test]", test_metrics)
 
-    save_checkpoint(student, student_opt_grl, epoch=22, path="checkpoints/student_final.pth")
-    stage3_time = time.time() - stage3_start
-    print(f"  → Saved final student checkpoint (Val AUC={metrics['auc']:.4f} | Test AUC={test_metrics['auc']:.4f})")
-    print(f"  → Stage 3 complete in {_fmt_time(stage3_time)}")
+        save_checkpoint(student, student_opt_grl, epoch=teacher_epochs + student_epochs + grl_epochs,
+                        path="checkpoints/student_final.pth")
+        stage3_time = time.time() - stage3_start
+        print(f"  → Saved final student checkpoint (Val AUC={metrics['auc']:.4f} | Test AUC={test_metrics['auc']:.4f})")
+        print(f"  → Stage 3 complete in {_fmt_time(stage3_time)}")
 
-    if metrics["auc"] > best_student_auc:
-        save_checkpoint(student, student_opt_grl, epoch=20, path="checkpoints/student_best.pth")
-        print(f"  → New best student! AUC improved: {best_student_auc:.4f} → {metrics['auc']:.4f}")
+        if metrics["auc"] > best_student_auc:
+            save_checkpoint(student, student_opt_grl, epoch=teacher_epochs + student_epochs + grl_epochs,
+                            path="checkpoints/student_best.pth")
+            print(f"  → New best student! AUC improved: {best_student_auc:.4f} → {metrics['auc']:.4f}")
+    else:
+        print(f"\n  ℹ Stage 3 (GRL) skipped — grl_epochs=0 in config")
+        stage3_time = 0.0
+
+        # Do final evaluation without GRL
+        print("\n  Calibrating final threshold on validation split...")
+        metrics = evaluate(student, val_loader, device, calibrate_threshold=True)
+        print_metrics("  [Val]", metrics)
+
+        print("\n  Final test evaluation using validation threshold...")
+        test_metrics = evaluate(
+            student,
+            test_loader,
+            device,
+            threshold=metrics["threshold"],
+            calibrate_threshold=False,
+        )
+        print_metrics("  [Test]", test_metrics)
+
+        save_checkpoint(student, student_opt, epoch=teacher_epochs + student_epochs,
+                        path="checkpoints/student_final.pth")
 
     # ---------------------------
     # Final Summary
@@ -372,7 +385,8 @@ def main():
     print(f"  PIPELINE COMPLETE")
     print(f"  Stage 1 (Teacher):     {_fmt_time(stage1_time)}")
     print(f"  Stage 2 (Student KD):  {_fmt_time(stage2_time)}")
-    print(f"  Stage 3 (GRL):         {_fmt_time(stage3_time)}")
+    if grl_epochs > 0:
+        print(f"  Stage 3 (GRL):         {_fmt_time(stage3_time)}")
     print(f"  Total pipeline time:   {_fmt_time(total_time)}")
     print(f"  Best Teacher AUC:      {best_teacher_auc:.4f}")
     print(f"  Best Student Val AUC:  {max(best_student_auc, metrics['auc']):.4f}")

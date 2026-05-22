@@ -39,10 +39,25 @@ def evaluate(
     model,
     dataloader,
     device,
-    grad_extractor=None,
     threshold=None,
     calibrate_threshold=True,
 ):
+    """
+    Evaluate a model (teacher or student) on a dataloader.
+
+    Both teacher and student now share the same forward signature:
+        model(x_rgb, x_forensic) → dict with "logits"
+
+    No gradient extractor is needed — the dual-domain architecture uses
+    (RGB, forensic_stack) as inputs for both networks.
+
+    Args:
+        model:       TeacherModel or StudentModel
+        dataloader:  validation/test DataLoader
+        device:      torch.device
+        threshold:   optional fixed threshold; if None, calibrated from data
+        calibrate_threshold: whether to search for optimal threshold
+    """
     model.eval()
 
     all_preds  = []
@@ -57,14 +72,11 @@ def evaluate(
             x      = batch["image"].to(device)
             labels = batch["label"].to(device)
 
+            # Build forensic stack from RGB
             x_for = build_forensic_stack(x)
 
-            if grad_extractor is None:
-                out = model(x, x_for)
-            else:
-                with torch.enable_grad():
-                    x_grad = grad_extractor(x)
-                out = model(x_for, x_grad)
+            # Unified forward: both teacher and student use (x_rgb, x_forensic)
+            out = model(x, x_for)
 
             logits = out["logits"]
             probs  = torch.softmax(logits, dim=1)[:, 1]

@@ -1,28 +1,25 @@
-# Technical Architecture: Federated Deepfake Detection
+# Technical Architecture: Federated Deepfake Detection (Dual-Domain)
 
 This document provides an in-depth technical explanation of the Federated Deepfake Detection project, covering the architectural design, feature extraction methods, loss functions, and the transition from a centralized to a federated learning paradigm.
 
 ## 1. System Architecture and Design Choices
 
-The system relies on a Teacher-Student Knowledge Distillation (KD) framework enhanced with Adversarial Training via a Gradient Reversal Layer (GRL).
+The system relies on a Dual-Domain Teacher-Student Knowledge Distillation (KD) framework.
 
 ### 1.1 Simplified Architecture Pipeline
 
 ```mermaid
 graph TD
-    Image[Input Image] --> |RGB & Forensic| Teacher[Large Teacher Model]
-    Image --> |Forensic & Gradient| Student[Lightweight Student Model]
-    Teacher --> |Knowledge Distillation| Student
-    Student --> |Reversed Gradients| GenHead[Generator Classifier]
+    Image[Input Image] --> |RGB & Forensic Stack| Teacher[Large Dual-Domain Teacher]
+    Image --> |RGB & Forensic Stack| Student[Lightweight Dual-Domain Student]
+    Teacher --> |Multi-Level Knowledge Distillation| Student
     
     classDef default fill:#f9f9f9,stroke:#333,stroke-width:1px;
     classDef teacher fill:#f1f8e9,stroke:#689f38;
     classDef student fill:#fff3e0,stroke:#f57c00;
-    classDef grl fill:#ffebee,stroke:#d32f2f;
     
     class Teacher teacher;
     class Student student;
-    class GenHead grl;
 ```
 
 ### 1.2 Detailed Architecture Diagram
@@ -32,69 +29,61 @@ graph TD
     subgraph Feature Extraction Pipeline
         A[Input Image<br/>RGB 3x256x256] --> B(Forensic Extractors)
         B --> |SRM, FFT, Wavelets, Laplacian| C[Forensic Stack<br/>12 Channels]
-        A --> D(Frozen MobileNetV3)
-        D --> |Autograd| E[Gradient Map<br/>3 Channels]
     end
 
     subgraph Teacher Model
-        A --> |RGB| T1[ResNet-18 Backbone]
-        C --> T2[Forensic CNN]
-        T1 --> |512-dim| T3[Concatenate]
+        A --> |RGB| T1[Semantic Teacher<br/>ResNet-50]
+        C --> T2[Forensic Teacher<br/>ResNet-18]
+        T1 --> |256-dim| T3[Gated Fusion]
         T2 --> |256-dim| T3
-        T3 --> T4[MLP 768 -> 512]
-        T4 --> |512-dim Embedding| T5[Classifier]
-        T5 --> |Real/Fake| TOut
+        T3 --> |256-dim Embedding| T4[Classifier]
+        T4 --> |Real/Fake| TOut
     end
 
     subgraph Student Model
-        C --> S1[SmallCNN<br/>64->128->256]
-        E --> S2[SmallCNN<br/>64->128->256]
-        S1 --> S3[Concatenate]
-        S2 --> S3
-        S3 --> S4[MLP 512 -> 256]
-        S4 --> |256-dim Embedding| S5[Classifier]
-        S5 --> |Real/Fake| SOut
+        A --> |RGB| S1[Semantic Student<br/>MobileNetV2]
+        C --> S2[Forensic Student<br/>Lightweight 5-layer CNN]
+        S1 --> |256-dim| S3[Gated Fusion]
+        S2 --> |256-dim| S3
+        S3 --> |256-dim Embedding| S4[Classifier]
+        S4 --> |Real/Fake| SOut
     end
 
-    subgraph Generator Invariance Head
-        S4 -.-> G1[Gradient Reversal Layer<br/>Multiplies gradients by -λ]
-        G1 -.-> G2[Generator Classifier<br/>gen_head]
-        G2 -.-> |Predicts Generator ID| GOut
-    end
-
-    T4 -.-> |Knowledge Distillation<br/>KD Loss & SupCon Loss| S4
-    TOut -.-> |Soft Labels<br/>KD Loss| SOut
+    T1 -.-> |Semantic KD<br/>MSE| S1
+    T2 -.-> |Forensic KD<br/>MSE| S2
+    T3 -.-> |Embedding KD<br/>MSE & SupCon| S3
+    TOut -.-> |Logits KD<br/>KL-Div| SOut
 
     classDef default fill:#f9f9f9,stroke:#333,stroke-width:1px;
     classDef feature fill:#e1f5fe,stroke:#0288d1;
     classDef teacher fill:#f1f8e9,stroke:#689f38;
     classDef student fill:#fff3e0,stroke:#f57c00;
-    classDef grl fill:#ffebee,stroke:#d32f2f;
     
-    class A,B,C,D,E feature;
-    class T1,T2,T3,T4,T5,TOut teacher;
-    class S1,S2,S3,S4,S5,SOut student;
-    class G1,G2,GOut grl;
+    class A,B,C feature;
+    class T1,T2,T3,T4,TOut teacher;
+    class S1,S2,S3,S4,SOut student;
 ```
 
 ### 1.3 Architectural Component Choices
-1. **Teacher Model (ResNet-18):** Chosen because it provides a powerful semantic understanding of RGB images (~11.7M parameters) without being overly massive. It is strong enough to accurately detect deepfakes and generate high-quality "soft labels" to guide the Student, but small enough to train efficiently.
-2. **Student Model (Small CNN):** Chosen for extreme deployability. With only ~1.0M parameters, it is incredibly lightweight. This makes it ideal for deployment on edge devices and drastically reduces the communication payload required during Federated Learning transmission rounds.
-3. **Gradient Extractor (MobileNetV3):** We extract an ImageNet-level activation gradient. MobileNetV3 is chosen over a ResNet because it is incredibly fast and lightweight (~2.5M params vs 11.7M). Since the extractor must run a full forward and backward pass for every single image, MobileNetV3 reduces the computational bottleneck by 3-4x.
-4. **Student is Blind to RGB:** The Student never sees raw RGB pixels. By forcing it to rely entirely on Forensic signals and Gradient maps, it learns manipulation artifacts independent of image content, preventing it from memorizing specific generator flaws (e.g., "StyleGAN eyes").
-5. **Knowledge Distillation (KD):** To make the lightweight Student accurate despite lacking RGB vision, the massive Teacher model guides it using "dark knowledge" (soft probabilities).
+1. **Teacher Model (~35.5M Params):** 
+   - **Semantic Branch (ResNet-50):** Provides powerful semantic understanding of RGB images.
+   - **Forensic Branch (ResNet-18):** Modified to accept 12 channels. Analyzes high-frequency manipulation artifacts.
+2. **Student Model (~4.3M Params):**
+   - **Semantic Branch (MobileNetV2):** Uses ImageNet pretraining to quickly learn structural anomalies from RGB.
+   - **Forensic Branch (Lightweight CNN):** Since ImageNet weights don't transfer to 12-channel forensic signals, a lightweight custom CNN (~500K params) is used for extreme efficiency.
+3. **Gated Fusion:** Instead of blind concatenation, a learned sigmoid gate dynamically weighs the importance of semantic vs. forensic features for each individual image.
+4. **Multi-Level Knowledge Distillation:** The student receives guidance not just at the final output, but at every intermediate representation (Semantic, Forensic, and Fused Embedding). This forces the lightweight student to mimic the exact feature reasoning of the massive teacher.
 
 ---
 
 ## 2. Feature Extraction Methods
 
-The pipeline extracts five specific signals (15 total channels) to expose deepfakes without relying on RGB content.
+The pipeline extracts specific signals to expose deepfakes through the **Forensic Stack (12 Channels)**:
 
 *   **SRM (Steganalysis Rich Model) [3 channels]:** Uses high-pass filters to extract noise residuals. Real cameras have physical noise characteristics; deepfake generators leave distinctly different statistical noise patterns.
 *   **FFT (Fast Fourier Transform) [3 channels]:** Deepfake upsampling techniques often leave spectral artifacts (unusual frequency distributions) that are invisible in the spatial domain but glow brightly in the frequency domain.
 *   **Wavelet (Haar) [3 channels]:** Decomposes the image to capture multi-scale texture inconsistencies, highlighting areas where high-frequency details don't match the low-frequency structure.
 *   **Laplacian [3 channels]:** A second-derivative edge detector. It is highly sensitive to blending boundary artifacts left by Face-swap and inpainting operations.
-*   **Gradient Map [3 channels]:** Derived by backpropagating a classification loss through a frozen MobileNetV3. Fake images cause unnatural, concentrated activation gradients compared to real images.
 
 ---
 
@@ -108,11 +97,13 @@ To ensure formatting compatibility, equations are presented using standard inlin
 > [!TIP]
 > **Benefit:** Standard Cross Entropy is replaced with Focal Loss (Gamma = 2.0) and label smoothing (0.1). This heavily down-weights the loss for easy, obvious fakes and forces the model to focus its learning capacity on the hardest, most subtle deepfakes, significantly improving recall.
 
-### 3.2 Knowledge Distillation (KD) Loss
-> **KD Loss** = Temperature^2 * KL_Divergence( Softmax(Student_Logits / Temperature) , Softmax(Teacher_Logits / Temperature) )
+### 3.2 Multi-Level Knowledge Distillation (KD) Loss
+The KD process operates at multiple levels of the network:
+> **Logits KD Loss** = Temperature^2 * KL_Divergence( Softmax(Student_Logits / Temp) , Softmax(Teacher_Logits / Temp) )
+> **Feature KD Loss** = MSE(Student_Features, Teacher_Features)
 
 > [!TIP]
-> **Benefit:** Soft labels convey structural uncertainty. If the Teacher predicts an image is 95% fake and 5% real, that 5% contains information. High temperature T=4.0 softens the distribution to reveal this, giving the Student richer learning signals than hard binary labels.
+> **Benefit:** Soft labels convey structural uncertainty (e.g. 95% fake, 5% real). Intermediate feature KD (Semantic and Forensic) ensures the student learns the exact reasoning pathways of the teacher.
 
 ### 3.3 Supervised Contrastive (SupCon) Loss
 > **SupCon Loss** = -1/Positives * Sum [ Log( Exp(Similarity(i, positive)/Temp) / Sum(Exp(Similarity(i, all)/Temp)) ) ]
@@ -120,17 +111,13 @@ To ensure formatting compatibility, equations are presented using standard inlin
 > [!TIP]
 > **Benefit:** Implemented using the log-sum-exp trick for fp16 stability. This shapes the latent space by forcibly pulling the 256-dim embeddings of real images together while pushing fake image embeddings away, ensuring robust linear separability.
 
-### 3.4 Adversarial Generator Invariance via GRL
-> **Adversarial Loss** = CrossEntropy( Generator_Classifier( Gradient_Reversal(Student_Features) ) , True_Generator_ID )
-
-> [!IMPORTANT]
-> **Benefit:** The Gradient Reversal Layer (GRL) multiplies gradients by a negative weight (-Lambda) during backpropagation. The Generator Classifier attempts to predict *which* specific deepfake generator created the image. The GRL reverses this signal, explicitly rewarding the Student for **confusing the Generator Classifier**. This strips away generator-specific shortcuts and forces the learning of *universal* forgery artifacts.
-
-### 3.5 FedProx Regularization (Federated Only)
+### 3.4 FedProx Regularization (Federated Only)
 > **FedProx Loss** = Local_Loss + (Mu / 2) * L2_Distance(Local_Weights, Global_Weights)^2
 
 > [!WARNING]
-> **Benefit:** In non-IID federated settings, Client A (seeing only StyleGAN) will overfit and drift away from Client B. FedProx adds a proximal penalty (Mu / 2) * L2_Distance(Local_Weights, Global_Weights)^2 that acts like an elastic band, forcing each client's local updates to stay anchored near the global model's consensus.
+> **Benefit:** In non-IID federated settings, Client A (seeing only StyleGAN) will overfit and drift away from Client B. FedProx adds a proximal penalty (Mu / 2) * L2_Distance(Local_Weights, Global_Weights)^2 that acts like an elastic band, forcing each client's local updates to stay anchored near the global model's consensus. In our architecture, Mu is kept low (0.001) to prevent optimization collapse.
+
+*(Note: Gradient Reversal Layer / Adversarial Training is currently disabled in the architecture as the forensic branch natively benefits from generator-specific traces).*
 
 ---
 
@@ -139,8 +126,7 @@ To ensure formatting compatibility, equations are presented using standard inlin
 ### 4.1 Centralized Flow
 In the centralized version (`main.py`), all data is located on a single server. Training happens sequentially:
 1. **Stage 1:** Train Teacher on full dataset (RGB + Forensic). Freeze Teacher.
-2. **Stage 2:** Train Student using KD from the frozen Teacher.
-3. **Stage 3:** Attach GRL and `gen_head` to train the Student for generator invariance.
+2. **Stage 2:** Train Student using Multi-Level KD from the frozen Teacher.
 
 ### 4.2 Federated Flow and Architecture Shifts
 In the federated version (`main_federated.py`), data is distributed across multiple clients.
@@ -157,7 +143,7 @@ sequenceDiagram
     Server->>Client 2: Broadcast Global Student & Teacher
     
     loop Every Federated Round
-        Note over Client 1, Client 2: Phase 2: Local Training (KD + GRL + FedProx)
+        Note over Client 1, Client 2: Phase 2: Local Training (KD + FedProx)
         Client 1->>Server: Send Updated Student Weights
         Client 2->>Server: Send Updated Student Weights
         Note over Server: Aggregation (FedAvg)
@@ -170,13 +156,8 @@ sequenceDiagram
 *   **Teacher Model:** Trained *once* centrally, frozen, and distributed identically to all clients. It is NOT updated during federated rounds.
 *   **Student Model:** This is the core federated component. Its weights are sent back and forth between the server and clients, aggregated via **FedAvg**: 
     > **Global_Weights** = Sum over clients ( (Client_Data_Size / Total_Data_Size) * Client_Weights )
-*   **Generator Head (`gen_head`):** **NOT federated.** Because clients have completely different generators (non-IID), their `gen_head` classifiers have different classes. Each client keeps its `gen_head` strictly local.
 
-### 4.3 Synergy: GRL + Federated Learning
-Without GRL, federated clients would independently learn conflicting, generator-specific features, making `FedAvg` produce a confused global model. 
-With GRL applied *locally*, each client is forced to learn universal features *before* aggregation. Because all clients extract universal features, their weights align naturally during `FedAvg`, resulting in a highly robust global detector.
-
-### 4.4 ELI5: Federated Learning Simplified
+### 4.3 ELI5: Federated Learning Simplified
 
 #### The Cookie Analogy
 Imagine you and your friends want to bake the **Ultimate Cookie**, but you aren't allowed to show each other your secret ingredients (your private data).

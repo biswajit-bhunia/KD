@@ -1,19 +1,20 @@
 batch_size: 16
-learning_rate: 0.0003
+learning_rate: 0.0001          # safer than 0.0003 for MobileNetV2 + federated
 seed: 42
-deterministic: false       # true is more reproducible but can be slower
+deterministic: false           # true is more reproducible but can be slower
 val_generator_name: "StyleGAN"           # held-out for validation (GAN-based, photorealistic)
 test_generator_name: "Stable Diffusion"  # held-out for final test (diffusion-based, photorealistic)
 # Training Epochs
 teacher_epochs: 10
 student_epochs: 15
-grl_epochs: 10
+grl_epochs: 0                  # GRL disabled — set > 0 to re-enable
 
 # Loss weights
 lambda_kd: 0.3
+lambda_feat_kd: 0.5            # multi-level feature KD weight (semantic + forensic + embedding)
 lambda_supcon: 0.03
-lambda_grl: 0.05        # starting/floor value for GRL schedule
-max_lambda_grl: 0.05     # hard ceiling — GRL sigmoid ramps from ~0 to this over training
+lambda_grl: 0.0                # GRL disabled — forensic branch benefits from generator-sensitive features
+max_lambda_grl: 0.0            # hard ceiling — GRL sigmoid ramps from ~0 to this over training
 
 # Temperatures
 temperature_kd: 4.0
@@ -21,8 +22,8 @@ temperature_supcon: 0.15
 
 # ----- Federated Learning -----
 num_clients: 4            # number of federated clients
-num_rounds: 5            # number of federated rounds
-local_epochs: 1           # local training epochs per client per round
+num_rounds: 5             # number of federated rounds
+local_epochs: 2           # local training epochs per client per round (was 1)
 clients_per_round: null   # null = all clients participate each round
-fedprox_mu: 1.0          # proximal term weight (0 = pure FedAvg)
+fedprox_mu: 0.01         # proximal term weight (was 1.0 — caused optimization collapse)
 iid_partition: false      # false = non-IID (split by generator, realistic)

@@ -14,7 +14,6 @@ import time
 import yaml
 import torch
 from torch.utils.data import DataLoader
-from torchvision.models import mobilenet_v3_small, MobileNet_V3_Small_Weights
 from sklearn.model_selection import train_test_split
 
 # Data
@@ -34,9 +33,6 @@ from training.validate import evaluate
 # Federation
 from federation.client import FederatedClient
 from federation.server import FederatedServer
-
-# Features
-from features.gradient import GradientExtractor
 
 # Utils
 from utils.checkpoint import save_checkpoint
@@ -82,9 +78,10 @@ def main():
     deterministic = config.get("deterministic", False)
     seed_everything(seed, deterministic=deterministic)
     lambda_kd     = config["lambda_kd"]
+    lambda_feat_kd = config.get("lambda_feat_kd", 0.5)
     lambda_supcon = config["lambda_supcon"]
     lambda_grl    = config["lambda_grl"]
-    max_lambda_grl = config.get("max_lambda_grl", 0.3)
+    max_lambda_grl = config.get("max_lambda_grl", 0.0)
     temp_kd        = config.get("temperature_kd", 4.0)
     temp_supcon    = config.get("temperature_supcon", 0.07)
     teacher_epochs = config.get("teacher_epochs", 5)
@@ -94,15 +91,15 @@ def main():
     num_rounds        = config.get("num_rounds", 10)
     local_epochs      = config.get("local_epochs", 3)
     clients_per_round = config.get("clients_per_round", None)  # None = all
-    mu                = config.get("fedprox_mu", 0.01)
+    mu                = config.get("fedprox_mu", 0.001)
     iid_partition     = config.get("iid_partition", False)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print(f"\n{'='*60}")
-    print(f"  Federated Deepfake Detection Pipeline")
+    print(f"  Federated Deepfake Detection Pipeline (Dual-Domain)")
     print(f"  Device: {device} | Batch: {batch_size} | LR: {lr}")
-    print(f"  λ_kd: {lambda_kd} | λ_sc: {lambda_supcon} | λ_grl: {lambda_grl}")
+    print(f"  λ_kd: {lambda_kd} | λ_feat: {lambda_feat_kd} | λ_sc: {lambda_supcon} | λ_grl: {lambda_grl}")
     print(f"  Clients: {num_clients} | Rounds: {num_rounds} | "
           f"Local epochs: {local_epochs}")
     print(f"  FedProx μ: {mu} | IID: {iid_partition}")
@@ -244,7 +241,7 @@ def main():
     metrics = evaluate(teacher, val_loader, device)
     print_metrics("  [Teacher]", metrics)
 
-    save_checkpoint(teacher, teacher_opt, epoch=5, path="checkpoints/teacher_federated.pth")
+    save_checkpoint(teacher, teacher_opt, epoch=teacher_epochs, path="checkpoints/teacher_federated.pth")
     phase1_time = time.time() - phase1_start
     print(f"  → Saved teacher (AUC={metrics['auc']:.4f})")
     print(f"  → Phase 1 complete in {_fmt_time(phase1_time)}")
@@ -255,12 +252,10 @@ def main():
         p.requires_grad = False
 
     # ---------------------------
-    # 4. Initialize Student & Gradient Model
+    # 4. Initialize Student
     # ---------------------------
-    print("\n  Initializing student and gradient models...")
+    print("\n  Initializing student model...")
     global_student = StudentModel().to(device)
-    grad_model = mobilenet_v3_small(weights=MobileNet_V3_Small_Weights.IMAGENET1K_V1).to(device)
-    grad_extractor = GradientExtractor(grad_model).to(device)
 
     student_params = sum(p.numel() for p in global_student.parameters())
     print(f"  Student model: {student_params:,} parameters "
@@ -294,7 +289,6 @@ def main():
             client_id=client_id,
             samples=client_data[client_id],
             teacher=teacher,
-            grad_model=grad_model,
             device=device,
             batch_size=batch_size,
             seed=seed,
@@ -321,7 +315,6 @@ def main():
         clients=clients,
         val_loader=val_loader,
         device=device,
-        grad_extractor=grad_extractor,
         clients_per_round=clients_per_round,
         seed=seed,
     )
@@ -333,6 +326,7 @@ def main():
         local_epochs=local_epochs,
         lr=lr,
         lambda_kd=lambda_kd,
+        lambda_feat_kd=lambda_feat_kd,
         lambda_supcon=lambda_supcon,
         lambda_grl=lambda_grl,
         max_lambda_grl=max_lambda_grl,
@@ -348,7 +342,7 @@ def main():
     global_student.load_state_dict(torch.load(best_federated_path, map_location=device, weights_only=True))
 
     print("\n  Calibrating final threshold on validation split...")
-    final_val_metrics = evaluate(global_student, val_loader, device, grad_extractor, calibrate_threshold=True)
+    final_val_metrics = evaluate(global_student, val_loader, device, calibrate_threshold=True)
     print_metrics("  [Federated Val]", final_val_metrics)
 
     print("\n  Final test evaluation using validation threshold...")
@@ -356,7 +350,6 @@ def main():
         global_student,
         test_loader,
         device,
-        grad_extractor,
         threshold=final_val_metrics["threshold"],
         calibrate_threshold=False,
     )

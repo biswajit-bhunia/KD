@@ -37,7 +37,6 @@ class FederatedServer:
         clients: List[FederatedClient],
         val_loader: torch.utils.data.DataLoader,
         device: torch.device,
-        grad_extractor: nn.Module,
         clients_per_round: Optional[int] = None,
         seed: int = 42,
     ):
@@ -45,7 +44,6 @@ class FederatedServer:
         self.clients = clients
         self.val_loader = val_loader
         self.device = device
-        self.grad_extractor = grad_extractor
         self.clients_per_round = clients_per_round or len(clients)
         self.rng = random.Random(seed)
 
@@ -58,10 +56,11 @@ class FederatedServer:
         local_epochs: int = 3,
         lr: float = 3e-4,
         lambda_kd: float = 0.1,
+        lambda_feat_kd: float = 0.5,
         lambda_supcon: float = 0.05,
-        lambda_grl: float = 0.05,
-        max_lambda_grl: float = 0.3,
-        mu: float = 0.01,
+        lambda_grl: float = 0.0,
+        max_lambda_grl: float = 0.0,
+        mu: float = 0.001,
         temperature_kd: float = 4.0,
         temperature_supcon: float = 0.07,
         save_path: str = "checkpoints/student_federated_best.pth",
@@ -70,7 +69,7 @@ class FederatedServer:
         print(f"  Federated Training Configuration")
         print(f"  Rounds: {num_rounds} | Clients/round: {self.clients_per_round}/{len(self.clients)}")
         print(f"  Local epochs: {local_epochs} | LR: {lr}")
-        print(f"  FedProx μ: {mu} | λ_kd: {lambda_kd} | λ_sc: {lambda_supcon} | λ_grl: {lambda_grl}")
+        print(f"  FedProx μ: {mu} | λ_kd: {lambda_kd} | λ_feat: {lambda_feat_kd} | λ_sc: {lambda_supcon} | λ_grl: {lambda_grl}")
         print(f"{'='*60}\n")
 
         total_start = time.time()
@@ -104,6 +103,7 @@ class FederatedServer:
                     lr=lr,
                     local_epochs=local_epochs,
                     lambda_kd=lambda_kd,
+                    lambda_feat_kd=lambda_feat_kd,
                     lambda_supcon=lambda_supcon,
                     lambda_grl=lambda_grl,
                     max_lambda_grl=max_lambda_grl,
@@ -133,7 +133,7 @@ class FederatedServer:
             print(f"\n  Evaluating global model...")
             metrics = evaluate(
                 self.global_student, self.val_loader,
-                self.device, self.grad_extractor
+                self.device
             )
 
             round_time = time.time() - round_start
