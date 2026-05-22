@@ -106,7 +106,10 @@ class ForensicTeacher(nn.Module):
         if pretrained and old_conv.weight is not None:
             with torch.no_grad():
                 # old_conv.weight: (64, 3, 7, 7) → repeat along channel dim → (64, 12, 7, 7)
-                new_conv.weight.copy_(old_conv.weight.repeat(1, 4, 1, 1))
+                # Scale by 1/sqrt(4) to preserve activation variance: conv sums over
+                # input channels, so repeating identical weights 4× inflates variance
+                # by 4×. Dividing by sqrt(4) = 2 restores the pretrained activation scale.
+                new_conv.weight.copy_(old_conv.weight.repeat(1, 4, 1, 1) / (4 ** 0.5))
         model.conv1 = new_conv
 
         # Remove classifier — keep everything up to avgpool

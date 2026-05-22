@@ -90,6 +90,13 @@ class SupConLoss(nn.Module):
         device = embeddings.device
         B = embeddings.shape[0]
 
+        # Guard: contrastive learning requires B >= 2 and at least 2 distinct labels
+        # to have meaningful positive/negative pairs.  When all labels are identical,
+        # every pair is "positive" and the loss degenerates — return 0 to avoid
+        # wasted gradient steps and potential numerical issues.
+        if B <= 1 or labels.unique().numel() < 2:
+            return (embeddings * 0).sum()  # differentiable zero
+
         # Normalize embeddings
         embeddings = F.normalize(embeddings, dim=1)
 

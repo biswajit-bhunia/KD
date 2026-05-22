@@ -74,13 +74,14 @@ def compute_srm(image):
 # ---------------------------
 def compute_fft(image):
     """
-    FFT magnitude spectrum
+    FFT magnitude spectrum — computed per-channel (R, G, B independently)
+    to capture colour-channel-specific frequency artifacts.
     """
     x = _to_bchw(image)
 
-    x_gray = x.mean(dim=1, keepdim=True)  # (B,1,H,W)
-
-    fft = torch.fft.fft2(x_gray)
+    # Per-channel FFT (B, 3, H, W) — each colour channel has distinct
+    # frequency characteristics under deepfake manipulation
+    fft = torch.fft.fft2(x)
     fft_shift = torch.fft.fftshift(fft)
 
     magnitude = torch.log(1 + torch.abs(fft_shift))  # log-scale stabilise
@@ -91,9 +92,6 @@ def compute_fft(image):
     mean = magnitude.mean(dim=(-2, -1), keepdim=True)
     std  = magnitude.std(dim=(-2, -1), keepdim=True)
     magnitude = (magnitude - mean) / (std + 1e-8)
-
-    # repeat to 3 channels for consistency
-    magnitude = magnitude.repeat(1, 3, 1, 1)
 
     return magnitude.squeeze(0) if image.dim() == 3 else magnitude
 
@@ -125,17 +123,18 @@ def compute_wavelet(image):
 # ---------------------------
 def compute_laplacian(image):
     """
-    Laplacian edge detector
+    Laplacian edge detector — computed per-channel (R, G, B independently)
+    to capture colour-channel-specific edge artifacts.
     """
     x = _to_bchw(image)
 
     # Issue #4: use cached kernel
     kernel = _get_laplacian_kernel(x.device)
 
-    x_gray = x.mean(dim=1, keepdim=True)
-    edges = F.conv2d(x_gray, kernel, padding=1)
-
-    edges = edges.repeat(1, 3, 1, 1)
+    # Depthwise convolution: apply the same Laplacian kernel to each
+    # of the 3 RGB channels independently (groups=3)
+    kernel_3ch = kernel.repeat(3, 1, 1, 1)  # (3, 1, 3, 3)
+    edges = F.conv2d(x, kernel_3ch, padding=1, groups=3)  # (B, 3, H, W)
 
     return edges.squeeze(0) if image.dim() == 3 else edges
 

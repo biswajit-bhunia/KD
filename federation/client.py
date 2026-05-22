@@ -28,6 +28,10 @@ from models.kd import MultiLevelKD
 from losses.losses import ClassificationLoss, KDLoss, SupConLoss, GeneratorAdversarialLoss
 from losses.fedprox import FedProxLoss
 from utils.reproducibility import make_generator, seed_worker
+from utils.debug_checks import (
+    check_loss, check_kd_decomposition, check_forensic_stack,
+    check_teacher_frozen, DEBUG as _DEBUG,
+)
 
 
 def _fmt_time(seconds):
@@ -194,7 +198,8 @@ class FederatedClient:
                     # Multi-level KD
                     kd_losses = multi_kd(student_out, teacher_out)
                     loss_kd_val = kd_losses["logits"]
-                    loss_feat   = kd_losses["total"]
+                    # Feature-only KD (excludes logits to avoid double-counting)
+                    loss_feat = kd_losses["semantic"] + kd_losses["forensic"] + kd_losses["embedding"]
 
                     loss_sup = supcon(student_out["embedding"], labels)
 
@@ -223,6 +228,13 @@ class FederatedClient:
                     + lambda_grl_epoch * loss_gen
                     + loss_prox
                 )
+
+                # --- Debug checks (gated, zero overhead in production) ---
+                if _DEBUG and batch_idx == 0 and epoch == 0:
+                    check_forensic_stack(x_for, x_rgb.shape[0], x_rgb.shape[2], x_rgb.shape[3])
+                    check_teacher_frozen(self.teacher)
+                    check_kd_decomposition(kd_losses, loss_kd_val, loss_feat)
+                    check_loss(loss, f"client{self.client_id}_loss")
 
                 optimizer.zero_grad()
                 if gen_optimizer is not None:

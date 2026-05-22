@@ -2,8 +2,8 @@ batch_size: 16
 learning_rate: 0.0001          # safer than 0.0003 for MobileNetV2 + federated
 seed: 42
 deterministic: false           # true is more reproducible but can be slower
-val_generator_name: "StyleGAN"           # held-out for validation (GAN-based, photorealistic)
-test_generator_name: "Stable Diffusion"  # held-out for final test (diffusion-based, photorealistic)
+val_generator_name: "NeuralTextures"           # held-out for validation (Reenactment)
+test_generator_name: "DeepFaceLab"       # held-out for final test (Identity Swap)
 # Training Epochs
 teacher_epochs: 10
 student_epochs: 15
@@ -22,8 +22,8 @@ temperature_supcon: 0.15
 
 # ----- Federated Learning -----
 num_clients: 4            # number of federated clients
-num_rounds: 5             # number of federated rounds
-local_epochs: 2           # local training epochs per client per round (was 1)
+num_rounds: 15            # number of federated rounds (was 5 — model was still improving)
+local_epochs: 3           # local training epochs per client per round (was 2)
 clients_per_round: null   # null = all clients participate each round
-fedprox_mu: 0.01         # proximal term weight (was 1.0 — caused optimization collapse)
+fedprox_mu: 0.05          # proximal term weight (was 0.01 — too weak to prevent client drift)
 iid_partition: false      # false = non-IID (split by generator, realistic)

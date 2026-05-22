@@ -15,6 +15,11 @@ import time
 import torch
 import torch.nn as nn
 
+from utils.debug_checks import (
+    check_loss, check_kd_decomposition, check_forensic_stack,
+    check_teacher_frozen, check_gradients, DEBUG as _DEBUG,
+)
+
 from features.forensic import build_forensic_stack
 
 from models.grl import GradientReversal
@@ -267,7 +272,8 @@ def train_student(
                 # Multi-level KD
                 kd_losses = multi_kd(student_out, teacher_out)
                 loss_kd   = kd_losses["logits"]      # logits KD
-                loss_feat = kd_losses["total"]        # all feature-level KD
+                # Feature-only KD (excludes logits to avoid double-counting)
+                loss_feat = kd_losses["semantic"] + kd_losses["forensic"] + kd_losses["embedding"]
 
                 loss_sup = supcon(student_out["embedding"], labels)
 
@@ -278,11 +284,22 @@ def train_student(
                     + lambda_supcon  * loss_sup
                 )
 
+            # --- Debug checks (gated by DEBUG flag, zero overhead in production) ---
+            if _DEBUG and batch_idx == 0:
+                check_forensic_stack(x_for, x_rgb.shape[0], x_rgb.shape[2], x_rgb.shape[3])
+                check_teacher_frozen(teacher)
+                check_kd_decomposition(kd_losses, loss_kd, loss_feat)
+                check_loss(loss, "total_loss")
+
             optimizer.zero_grad()
             scaler.scale(loss).backward()
 
             scaler.unscale_(optimizer)
             nn.utils.clip_grad_norm_(student.parameters(), max_norm=1.0)
+
+            # --- Debug: gradient health on first batch of each epoch ---
+            if _DEBUG and batch_idx == 0:
+                check_gradients(student, tag=f"student_epoch{epoch+1}")
 
             scaler.step(optimizer)
             scaler.update()
@@ -485,7 +502,8 @@ def train_with_grl(
                 # Multi-level KD
                 kd_losses = multi_kd(student_out, teacher_out)
                 loss_kd   = kd_losses["logits"]
-                loss_feat = kd_losses["total"]
+                # Feature-only KD (excludes logits to avoid double-counting)
+                loss_feat = kd_losses["semantic"] + kd_losses["forensic"] + kd_losses["embedding"]
 
                 loss_sup = supcon(student_out["embedding"], labels)
 
