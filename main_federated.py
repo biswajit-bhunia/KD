@@ -303,8 +303,8 @@ def main():
     print("\n  Loading best federated checkpoint for final test evaluation...")
     global_student.load_state_dict(torch.load(best_federated_path, map_location=device, weights_only=True))
 
-    print("\n  Final evaluation on validation split...")
-    final_val_metrics = evaluate(global_student, val_loader, device, calibrate_threshold=True)
+    print("\n  Final evaluation on validation split (with TTA)...")
+    final_val_metrics = evaluate(global_student, val_loader, device, calibrate_threshold=True, use_tta=True)
     print_metrics("  [Federated Val]", final_val_metrics)
 
     print("\n  Final test evaluation using validation threshold (with TTA)...")

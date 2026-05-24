@@ -37,7 +37,7 @@ def _get_round_lr(base_lr: float, round_idx: int, total_rounds: int) -> float:
     Round 0  → base_lr
     Round N-1 → base_lr * 0.1  (never goes to zero)
     """
-    min_lr = base_lr * 0.1
+    min_lr = base_lr * 0.3
     cosine_decay = 0.5 * (1 + math.cos(math.pi * round_idx / total_rounds))
     return min_lr + (base_lr - min_lr) * cosine_decay
 
