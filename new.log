@@ -1,0 +1,629 @@
+PS C:\Users\sayan\OneDrive\Desktop\federated-deepfake> python .\main_federated.py
+
+============================================================
+  Federated Deepfake Detection Pipeline (Dual-Domain)
+  Device: cuda | Batch: 16 | LR: 0.0001
+  λ_kd: 0.3 | λ_feat: 0.5
+  Clients: 3 | Rounds: 12 | Local epochs: 2
+  FedProx μ: 0.05 | IID: False
+============================================================
+
+  Loading dataset...
+  Loaded 2317 samples (999 real, 1318 fake, 7 generators) in 0.1s
+  Train: 1574 | Val: 369 | Test: 370
+  Train fake generators: DALL-E, DDPM, PNDM, Stable Diffusion, StyleGAN
+  Val fake generator:    NeuralTextures
+  Test fake generator:   DeepFaceLab
+  Exact duplicate check: no cross-split duplicates found.
+  Real near-duplicate check: no likely cross-split duplicates found.
+
+────────────────────────────────────────────────────────────
+  PHASE 1: Centralized Teacher Pretraining (10 epochs)
+────────────────────────────────────────────────────────────
+  Teacher model: 35,481,666 parameters
+  Train batches: 99
+  [Teacher] Epoch 1/10 done | Loss: 0.3761 | LR: 0.000098 | Time: 54.9s | ETA: 8m 14s
+  [Teacher] Epoch 2/10 done | Loss: 0.2610 | LR: 0.000091 | Time: 1m 2s | ETA: 8m 17s
+  [Teacher] Epoch 3/10 done | Loss: 0.1834 | LR: 0.000081 | Time: 1m 24s | ETA: 9m 49s
+  ✓ [Teacher] Health check passed (Epoch 3) — LR, loss, and components look normal.
+
+  [Teacher] Epoch 4/10 done | Loss: 0.1646 | LR: 0.000069 | Time: 1m 19s | ETA: 7m 56s
+  [Teacher] Epoch 5/10 done | Loss: 0.1208 | LR: 0.000055 | Time: 1m 18s | ETA: 6m 32s
+  [Teacher] Epoch 6/10 done | Loss: 0.0733 | LR: 0.000041 | Time: 56.7s | ETA: 3m 46s
+  ✓ [Teacher] Health check passed (Epoch 6) — LR, loss, and components look normal.
+
+  [Teacher] Epoch 7/10 done | Loss: 0.0878 | LR: 0.000029 | Time: 56.8s | ETA: 2m 50s
+  [Teacher] Epoch 8/10 done | Loss: 0.0394 | LR: 0.000019 | Time: 59.3s | ETA: 1m 58s
+  [Teacher] Epoch 9/10 done | Loss: 0.0254 | LR: 0.000012 | Time: 1m 1s | ETA: 1m 1s
+  ✓ [Teacher] Health check passed (Epoch 9) — LR, loss, and components look normal.
+
+  [Teacher] Epoch 10/10 done | Loss: 0.0172 | LR: 0.000010 | Time: 1m 3s | ETA: 0.0s
+  [Teacher] Training complete in 10m 57s
+
+  Evaluating teacher...
+    [Eval] Batch 12/24 (50%) | Elapsed: 43.8s
+    [Eval] Batch 24/24 (100%) | Elapsed: 46.5s
+    [Eval] Complete (369 samples in 48.0s)
+    [Eval] Threshold: 0.500 (default; default 0.5)  AUC is threshold-free
+  [Teacher] | Acc: 0.6260 | Prec: 0.7963 | Rec: 0.2529 | F1: 0.3839 | AUC: 0.8299
+  → Saved teacher (AUC=0.8299)
+  → Phase 1 complete in 11m 46s
+
+  Initializing student model...
+  Student model: 4,304,066 parameters (12.1% of teacher)
+
+────────────────────────────────────────────────────────────
+  DATA PARTITIONING (Non-IID by generator)
+────────────────────────────────────────────────────────────
+
+=== Data Partition Summary ===
+  Client 0: 627 samples (199 real, 428 fake) | generators: [2, 7]
+    breakdown: g2:225 | g7:203
+  Client 1: 532 samples (199 real, 333 fake) | generators: [1, 8]
+    breakdown: g1:207 | g8:126
+  Client 2: 415 samples (199 real, 216 fake) | generators: [6]
+    breakdown: g6:216
+
+  Partitioned in 0.00s
+
+  Creating federated clients...
+    Client 0: 627 samples | 2 generators [2, 7] | 40 batches
+    Client 1: 532 samples | 2 generators [1, 8] | 34 batches
+    Client 2: 415 samples | 1 generators [6] | 26 batches
+  3 clients created in 0.0s
+
+────────────────────────────────────────────────────────────
+  PHASE 2: Federated Student Training
+────────────────────────────────────────────────────────────
+
+============================================================
+  Federated Training Configuration
+  Rounds: 12 | Clients/round: 3/3
+  Local epochs: 2 | LR: 0.0001
+  FedProx μ: 0.05 | λ_kd: 0.3 | λ_feat: 0.5
+============================================================
+
+
+──────────────────────────────────────────────────
+  ROUND 1/12
+──────────────────────────────────────────────────
+  Selected clients: [0, 1, 2] (1574 total samples)
+
+    ┌─ Client 0 (1/3) | 627 samples | 2 generators
+      [Client 0] Epoch 1/2 | Loss: 0.9025 | Time: 23.2s | ETA: 23.2s
+      [Client 0] Epoch 2/2 | Loss: 0.4838 | Time: 15.9s | ETA: 0.0s
+      [Client 0] Local training done in 39.2s
+    └─ Client 0 complete
+
+    ┌─ Client 1 (2/3) | 532 samples | 2 generators
+      [Client 1] Epoch 1/2 | Loss: 1.1604 | Time: 15.8s | ETA: 15.8s
+      [Client 1] Epoch 2/2 | Loss: 0.9959 | Time: 14.0s | ETA: 0.0s
+      [Client 1] Local training done in 29.9s
+    └─ Client 1 complete
+
+    ┌─ Client 2 (3/3) | 415 samples | 1 generators
+      [Client 2] Epoch 1/2 | Loss: 1.4651 | Time: 15.3s | ETA: 15.3s
+      [Client 2] Epoch 2/2 | Loss: 1.2764 | Time: 10.5s | ETA: 0.0s
+      [Client 2] Local training done in 25.9s
+    └─ Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.05s
+
+  Evaluating global model...
+    [Eval] Batch 12/24 (50%) | Elapsed: 27.3s
+    [Eval] Batch 24/24 (100%) | Elapsed: 28.7s
+    [Eval] Complete (369 samples in 29.8s)
+    [Eval] Threshold: 0.500 (default; default 0.5)  AUC is threshold-free
+
+  ╔══ Round 1/12 Results ══
+  ║ Accuracy:  0.5447
+  ║ Precision: 1.0000
+  ║ Recall:    0.0118
+  ║ F1:        0.0233
+  ║ AUC:       0.9081
+  ╟──
+  ║ Round time: 2m 5s | Total elapsed: 2m 5s | ETA: 22m 55s
+  ╚══
+  ★ New best model! AUC: 0.9081 → saved to checkpoints/student_federated_best.pth
+
+──────────────────────────────────────────────────
+  ROUND 2/12
+──────────────────────────────────────────────────
+  Selected clients: [0, 1, 2] (1574 total samples)
+
+    ┌─ Client 0 (1/3) | 627 samples | 2 generators
+      [Client 0] Epoch 1/2 | Loss: 0.6490 | Time: 16.7s | ETA: 16.7s
+      [Client 0] Epoch 2/2 | Loss: 0.6996 | Time: 16.3s | ETA: 0.0s
+      [Client 0] Local training done in 33.2s
+    └─ Client 0 complete
+
+    ┌─ Client 1 (2/3) | 532 samples | 2 generators
+      [Client 1] Epoch 1/2 | Loss: 0.7550 | Time: 13.6s | ETA: 13.6s
+      [Client 1] Epoch 2/2 | Loss: 0.9911 | Time: 13.6s | ETA: 0.0s
+      [Client 1] Local training done in 27.3s
+    └─ Client 1 complete
+
+    ┌─ Client 2 (3/3) | 415 samples | 1 generators
+      [Client 2] Epoch 1/2 | Loss: 1.6351 | Time: 10.5s | ETA: 10.5s
+      [Client 2] Epoch 2/2 | Loss: 1.1242 | Time: 10.4s | ETA: 0.0s
+      [Client 2] Local training done in 21.0s
+    └─ Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.05s
+
+  Evaluating global model...
+    [Eval] Batch 12/24 (50%) | Elapsed: 23.1s
+    [Eval] Batch 24/24 (100%) | Elapsed: 24.3s
+    [Eval] Complete (369 samples in 25.4s)
+    [Eval] Threshold: 0.500 (default; default 0.5)  AUC is threshold-free
+
+  ╔══ Round 2/12 Results ══
+  ║ Accuracy:  0.5854
+  ║ Precision: 1.0000
+  ║ Recall:    0.1000
+  ║ F1:        0.1818
+  ║ AUC:       0.9346
+  ╟──
+  ║ Round time: 1m 47s | Total elapsed: 3m 52s | ETA: 19m 21s
+  ╚══
+  ★ New best model! AUC: 0.9346 → saved to checkpoints/student_federated_best.pth
+
+──────────────────────────────────────────────────
+  ROUND 3/12
+──────────────────────────────────────────────────
+  Selected clients: [0, 1, 2] (1574 total samples)
+
+    ┌─ Client 0 (1/3) | 627 samples | 2 generators
+      [Client 0] Epoch 1/2 | Loss: 0.4769 | Time: 16.9s | ETA: 16.9s
+      [Client 0] Epoch 2/2 | Loss: 0.2341 | Time: 16.4s | ETA: 0.0s
+      [Client 0] Local training done in 34.1s
+    └─ Client 0 complete
+
+    ┌─ Client 1 (2/3) | 532 samples | 2 generators
+      [Client 1] Epoch 1/2 | Loss: 0.6269 | Time: 13.9s | ETA: 13.9s
+      [Client 1] Epoch 2/2 | Loss: 0.4926 | Time: 13.6s | ETA: 0.0s
+      [Client 1] Local training done in 27.6s
+    └─ Client 1 complete
+
+    ┌─ Client 2 (3/3) | 415 samples | 1 generators
+      [Client 2] Epoch 1/2 | Loss: 1.7873 | Time: 10.5s | ETA: 10.5s
+      [Client 2] Epoch 2/2 | Loss: 1.1619 | Time: 10.4s | ETA: 0.0s
+      [Client 2] Local training done in 20.9s
+    └─ Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.04s
+
+  Evaluating global model...
+    [Eval] Batch 12/24 (50%) | Elapsed: 20.5s
+    [Eval] Batch 24/24 (100%) | Elapsed: 21.7s
+    [Eval] Complete (369 samples in 22.8s)
+    [Eval] Threshold: 0.500 (default; default 0.5)  AUC is threshold-free
+
+  ╔══ Round 3/12 Results ══
+  ║ Accuracy:  0.8645
+  ║ Precision: 0.8947
+  ║ Recall:    0.8000
+  ║ F1:        0.8447
+  ║ AUC:       0.9554
+  ╟──
+  ║ Round time: 1m 45s | Total elapsed: 5m 38s | ETA: 16m 53s
+  ╚══
+  ★ New best model! AUC: 0.9554 → saved to checkpoints/student_federated_best.pth
+
+──────────────────────────────────────────────────
+  ROUND 4/12
+──────────────────────────────────────────────────
+  Selected clients: [0, 1, 2] (1574 total samples)
+
+    ┌─ Client 0 (1/3) | 627 samples | 2 generators
+      [Client 0] Epoch 1/2 | Loss: 0.6411 | Time: 16.4s | ETA: 16.4s
+      [Client 0] Epoch 2/2 | Loss: 0.1295 | Time: 16.4s | ETA: 0.0s
+      [Client 0] Local training done in 32.9s
+    └─ Client 0 complete
+
+    ┌─ Client 1 (2/3) | 532 samples | 2 generators
+      [Client 1] Epoch 1/2 | Loss: 0.5253 | Time: 13.8s | ETA: 13.8s
+      [Client 1] Epoch 2/2 | Loss: 0.5765 | Time: 13.6s | ETA: 0.0s
+      [Client 1] Local training done in 27.5s
+    └─ Client 1 complete
+
+    ┌─ Client 2 (3/3) | 415 samples | 1 generators
+      [Client 2] Epoch 1/2 | Loss: 1.4777 | Time: 10.3s | ETA: 10.3s
+      [Client 2] Epoch 2/2 | Loss: 0.9767 | Time: 10.4s | ETA: 0.0s
+      [Client 2] Local training done in 20.8s
+    └─ Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.05s
+
+  Evaluating global model...
+    [Eval] Batch 12/24 (50%) | Elapsed: 20.8s
+    [Eval] Batch 24/24 (100%) | Elapsed: 22.0s
+    [Eval] Complete (369 samples in 23.0s)
+    [Eval] Threshold: 0.500 (default; default 0.5)  AUC is threshold-free
+
+  ╔══ Round 4/12 Results ══
+  ║ Accuracy:  0.5528
+  ║ Precision: 1.0000
+  ║ Recall:    0.0294
+  ║ F1:        0.0571
+  ║ AUC:       0.8857
+  ╟──
+  ║ Round time: 1m 44s | Total elapsed: 7m 22s | ETA: 14m 44s
+  ╚══
+
+──────────────────────────────────────────────────
+  ROUND 5/12
+──────────────────────────────────────────────────
+  Selected clients: [0, 1, 2] (1574 total samples)
+
+    ┌─ Client 0 (1/3) | 627 samples | 2 generators
+      [Client 0] Epoch 1/2 | Loss: 0.3496 | Time: 16.5s | ETA: 16.5s
+      [Client 0] Epoch 2/2 | Loss: 0.1744 | Time: 16.3s | ETA: 0.0s
+      [Client 0] Local training done in 32.9s
+    └─ Client 0 complete
+
+    ┌─ Client 1 (2/3) | 532 samples | 2 generators
+      [Client 1] Epoch 1/2 | Loss: 0.5324 | Time: 13.8s | ETA: 13.8s
+      [Client 1] Epoch 2/2 | Loss: 0.4364 | Time: 13.8s | ETA: 0.0s
+      [Client 1] Local training done in 27.6s
+    └─ Client 1 complete
+
+    ┌─ Client 2 (3/3) | 415 samples | 1 generators
+      [Client 2] Epoch 1/2 | Loss: 2.0707 | Time: 11.0s | ETA: 11.0s
+      [Client 2] Epoch 2/2 | Loss: 1.0191 | Time: 10.3s | ETA: 0.0s
+      [Client 2] Local training done in 21.3s
+    └─ Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.05s
+
+  Evaluating global model...
+    [Eval] Batch 12/24 (50%) | Elapsed: 20.3s
+    [Eval] Batch 24/24 (100%) | Elapsed: 21.6s
+    [Eval] Complete (369 samples in 22.6s)
+    [Eval] Threshold: 0.500 (default; default 0.5)  AUC is threshold-free
+
+  ╔══ Round 5/12 Results ══
+  ║ Accuracy:  0.7209
+  ║ Precision: 0.8602
+  ║ Recall:    0.4706
+  ║ F1:        0.6084
+  ║ AUC:       0.8802
+  ╟──
+  ║ Round time: 1m 44s | Total elapsed: 9m 7s | ETA: 12m 46s
+  ╚══
+
+──────────────────────────────────────────────────
+  ROUND 6/12
+──────────────────────────────────────────────────
+  Selected clients: [0, 1, 2] (1574 total samples)
+
+    ┌─ Client 0 (1/3) | 627 samples | 2 generators
+      [Client 0] Epoch 1/2 | Loss: 0.1386 | Time: 16.5s | ETA: 16.5s
+      [Client 0] Epoch 2/2 | Loss: 0.2885 | Time: 16.3s | ETA: 0.0s
+      [Client 0] Local training done in 33.0s
+    └─ Client 0 complete
+
+    ┌─ Client 1 (2/3) | 532 samples | 2 generators
+      [Client 1] Epoch 1/2 | Loss: 0.3128 | Time: 13.7s | ETA: 13.7s
+      [Client 1] Epoch 2/2 | Loss: 0.1687 | Time: 13.6s | ETA: 0.0s
+      [Client 1] Local training done in 27.4s
+    └─ Client 1 complete
+
+    ┌─ Client 2 (3/3) | 415 samples | 1 generators
+      [Client 2] Epoch 1/2 | Loss: 1.1330 | Time: 10.5s | ETA: 10.5s
+      [Client 2] Epoch 2/2 | Loss: 1.0634 | Time: 10.5s | ETA: 0.0s
+      [Client 2] Local training done in 21.1s
+    └─ Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.04s
+
+  Evaluating global model...
+    [Eval] Batch 12/24 (50%) | Elapsed: 20.4s
+    [Eval] Batch 24/24 (100%) | Elapsed: 21.6s
+    [Eval] Complete (369 samples in 22.7s)
+    [Eval] Threshold: 0.500 (default; default 0.5)  AUC is threshold-free
+
+  ╔══ Round 6/12 Results ══
+  ║ Accuracy:  0.5528
+  ║ Precision: 1.0000
+  ║ Recall:    0.0294
+  ║ F1:        0.0571
+  ║ AUC:       0.8945
+  ╟──
+  ║ Round time: 1m 44s | Total elapsed: 10m 51s | ETA: 10m 51s
+  ╚══
+
+──────────────────────────────────────────────────
+  ROUND 7/12
+──────────────────────────────────────────────────
+  Selected clients: [0, 1, 2] (1574 total samples)
+
+    ┌─ Client 0 (1/3) | 627 samples | 2 generators
+      [Client 0] Epoch 1/2 | Loss: 0.2747 | Time: 16.3s | ETA: 16.3s
+      [Client 0] Epoch 2/2 | Loss: 0.3204 | Time: 16.1s | ETA: 0.0s
+      [Client 0] Local training done in 32.5s
+    └─ Client 0 complete
+
+    ┌─ Client 1 (2/3) | 532 samples | 2 generators
+      [Client 1] Epoch 1/2 | Loss: 0.5003 | Time: 14.2s | ETA: 14.2s
+      [Client 1] Epoch 2/2 | Loss: 0.3145 | Time: 13.9s | ETA: 0.0s
+      [Client 1] Local training done in 28.2s
+    └─ Client 1 complete
+
+    ┌─ Client 2 (3/3) | 415 samples | 1 generators
+      [Client 2] Epoch 1/2 | Loss: 2.6292 | Time: 10.4s | ETA: 10.4s
+      [Client 2] Epoch 2/2 | Loss: 0.9171 | Time: 10.5s | ETA: 0.0s
+      [Client 2] Local training done in 21.0s
+    └─ Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.04s
+
+  Evaluating global model...
+    [Eval] Batch 12/24 (50%) | Elapsed: 20.4s
+    [Eval] Batch 24/24 (100%) | Elapsed: 21.7s
+    [Eval] Complete (369 samples in 22.7s)
+    [Eval] Threshold: 0.500 (default; default 0.5)  AUC is threshold-free
+
+  ╔══ Round 7/12 Results ══
+  ║ Accuracy:  0.5881
+  ║ Precision: 1.0000
+  ║ Recall:    0.1059
+  ║ F1:        0.1915
+  ║ AUC:       0.9454
+  ╟──
+  ║ Round time: 1m 44s | Total elapsed: 12m 36s | ETA: 9m 0s
+  ╚══
+
+──────────────────────────────────────────────────
+  ROUND 8/12
+──────────────────────────────────────────────────
+  Selected clients: [0, 1, 2] (1574 total samples)
+
+    ┌─ Client 0 (1/3) | 627 samples | 2 generators
+      [Client 0] Epoch 1/2 | Loss: 0.1676 | Time: 16.4s | ETA: 16.4s
+      [Client 0] Epoch 2/2 | Loss: 0.1663 | Time: 16.4s | ETA: 0.0s
+      [Client 0] Local training done in 32.9s
+    └─ Client 0 complete
+
+    ┌─ Client 1 (2/3) | 532 samples | 2 generators
+      [Client 1] Epoch 1/2 | Loss: 0.2230 | Time: 13.8s | ETA: 13.8s
+      [Client 1] Epoch 2/2 | Loss: 0.3086 | Time: 13.5s | ETA: 0.0s
+      [Client 1] Local training done in 27.4s
+    └─ Client 1 complete
+
+    ┌─ Client 2 (3/3) | 415 samples | 1 generators
+      [Client 2] Epoch 1/2 | Loss: 1.6273 | Time: 10.4s | ETA: 10.4s
+      [Client 2] Epoch 2/2 | Loss: 0.8222 | Time: 10.5s | ETA: 0.0s
+      [Client 2] Local training done in 21.0s
+    └─ Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.04s
+
+  Evaluating global model...
+    [Eval] Batch 12/24 (50%) | Elapsed: 19.8s
+    [Eval] Batch 24/24 (100%) | Elapsed: 21.0s
+    [Eval] Complete (369 samples in 21.9s)
+    [Eval] Threshold: 0.500 (default; default 0.5)  AUC is threshold-free
+
+  ╔══ Round 8/12 Results ══
+  ║ Accuracy:  0.6152
+  ║ Precision: 1.0000
+  ║ Recall:    0.1647
+  ║ F1:        0.2828
+  ║ AUC:       0.9187
+  ╟──
+  ║ Round time: 1m 43s | Total elapsed: 14m 19s | ETA: 7m 9s
+  ╚══
+
+──────────────────────────────────────────────────
+  ROUND 9/12
+──────────────────────────────────────────────────
+  Selected clients: [0, 1, 2] (1574 total samples)
+
+    ┌─ Client 0 (1/3) | 627 samples | 2 generators
+      [Client 0] Epoch 1/2 | Loss: 0.1119 | Time: 16.4s | ETA: 16.4s
+      [Client 0] Epoch 2/2 | Loss: 0.0836 | Time: 16.2s | ETA: 0.0s
+      [Client 0] Local training done in 32.7s
+    └─ Client 0 complete
+
+    ┌─ Client 1 (2/3) | 532 samples | 2 generators
+      [Client 1] Epoch 1/2 | Loss: 0.3740 | Time: 13.6s | ETA: 13.6s
+      [Client 1] Epoch 2/2 | Loss: 0.1485 | Time: 13.6s | ETA: 0.0s
+      [Client 1] Local training done in 27.3s
+    └─ Client 1 complete
+
+    ┌─ Client 2 (3/3) | 415 samples | 1 generators
+      [Client 2] Epoch 1/2 | Loss: 2.1248 | Time: 10.5s | ETA: 10.5s
+      [Client 2] Epoch 2/2 | Loss: 0.6012 | Time: 10.4s | ETA: 0.0s
+      [Client 2] Local training done in 20.9s
+    └─ Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.04s
+
+  Evaluating global model...
+    [Eval] Batch 12/24 (50%) | Elapsed: 19.3s
+    [Eval] Batch 24/24 (100%) | Elapsed: 20.5s
+    [Eval] Complete (369 samples in 21.4s)
+    [Eval] Threshold: 0.500 (default; default 0.5)  AUC is threshold-free
+
+  ╔══ Round 9/12 Results ══
+  ║ Accuracy:  0.6396
+  ║ Precision: 1.0000
+  ║ Recall:    0.2176
+  ║ F1:        0.3575
+  ║ AUC:       0.9212
+  ╟──
+  ║ Round time: 1m 42s | Total elapsed: 16m 2s | ETA: 5m 20s
+  ╚══
+
+──────────────────────────────────────────────────
+  ROUND 10/12
+──────────────────────────────────────────────────
+  Selected clients: [0, 1, 2] (1574 total samples)
+
+    ┌─ Client 0 (1/3) | 627 samples | 2 generators
+      [Client 0] Epoch 1/2 | Loss: 0.1437 | Time: 16.1s | ETA: 16.1s
+      [Client 0] Epoch 2/2 | Loss: 0.2841 | Time: 16.1s | ETA: 0.0s
+      [Client 0] Local training done in 32.3s
+    └─ Client 0 complete
+
+    ┌─ Client 1 (2/3) | 532 samples | 2 generators
+      [Client 1] Epoch 1/2 | Loss: 0.6960 | Time: 13.7s | ETA: 13.7s
+      [Client 1] Epoch 2/2 | Loss: 0.1463 | Time: 13.7s | ETA: 0.0s
+      [Client 1] Local training done in 27.5s
+    └─ Client 1 complete
+
+    ┌─ Client 2 (3/3) | 415 samples | 1 generators
+      [Client 2] Epoch 1/2 | Loss: 1.2759 | Time: 10.4s | ETA: 10.4s
+      [Client 2] Epoch 2/2 | Loss: 0.7226 | Time: 10.4s | ETA: 0.0s
+      [Client 2] Local training done in 20.9s
+    └─ Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.03s
+
+  Evaluating global model...
+    [Eval] Batch 12/24 (50%) | Elapsed: 19.2s
+    [Eval] Batch 24/24 (100%) | Elapsed: 20.4s
+    [Eval] Complete (369 samples in 21.3s)
+    [Eval] Threshold: 0.500 (default; default 0.5)  AUC is threshold-free
+
+  ╔══ Round 10/12 Results ══
+  ║ Accuracy:  0.6043
+  ║ Precision: 1.0000
+  ║ Recall:    0.1412
+  ║ F1:        0.2474
+  ║ AUC:       0.9031
+  ╟──
+  ║ Round time: 1m 42s | Total elapsed: 17m 44s | ETA: 3m 32s
+  ╚══
+
+──────────────────────────────────────────────────
+  ROUND 11/12
+──────────────────────────────────────────────────
+  Selected clients: [0, 1, 2] (1574 total samples)
+
+    ┌─ Client 0 (1/3) | 627 samples | 2 generators
+      [Client 0] Epoch 1/2 | Loss: 0.0462 | Time: 16.1s | ETA: 16.1s
+      [Client 0] Epoch 2/2 | Loss: 0.1111 | Time: 16.0s | ETA: 0.0s
+      [Client 0] Local training done in 32.5s
+    └─ Client 0 complete
+
+    ┌─ Client 1 (2/3) | 532 samples | 2 generators
+      [Client 1] Epoch 1/2 | Loss: 0.1765 | Time: 13.5s | ETA: 13.5s
+      [Client 1] Epoch 2/2 | Loss: 0.0678 | Time: 13.4s | ETA: 0.0s
+      [Client 1] Local training done in 27.0s
+    └─ Client 1 complete
+
+    ┌─ Client 2 (3/3) | 415 samples | 1 generators
+      [Client 2] Epoch 1/2 | Loss: 2.2815 | Time: 10.4s | ETA: 10.4s
+      [Client 2] Epoch 2/2 | Loss: 0.6394 | Time: 10.3s | ETA: 0.0s
+      [Client 2] Local training done in 20.8s
+    └─ Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.04s
+
+  Evaluating global model...
+    [Eval] Batch 12/24 (50%) | Elapsed: 19.1s
+    [Eval] Batch 24/24 (100%) | Elapsed: 20.4s
+    [Eval] Complete (369 samples in 21.3s)
+    [Eval] Threshold: 0.500 (default; default 0.5)  AUC is threshold-free
+
+  ╔══ Round 11/12 Results ══
+  ║ Accuracy:  0.5989
+  ║ Precision: 1.0000
+  ║ Recall:    0.1294
+  ║ F1:        0.2292
+  ║ AUC:       0.9110
+  ╟──
+  ║ Round time: 1m 41s | Total elapsed: 19m 26s | ETA: 1m 46s
+  ╚══
+
+──────────────────────────────────────────────────
+  ROUND 12/12
+──────────────────────────────────────────────────
+  Selected clients: [0, 1, 2] (1574 total samples)
+
+    ┌─ Client 0 (1/3) | 627 samples | 2 generators
+      [Client 0] Epoch 1/2 | Loss: 0.1643 | Time: 16.1s | ETA: 16.1s
+      [Client 0] Epoch 2/2 | Loss: 0.0674 | Time: 16.0s | ETA: 0.0s
+      [Client 0] Local training done in 32.2s
+    └─ Client 0 complete
+
+    ┌─ Client 1 (2/3) | 532 samples | 2 generators
+      [Client 1] Epoch 1/2 | Loss: 0.2053 | Time: 13.7s | ETA: 13.7s
+      [Client 1] Epoch 2/2 | Loss: 0.1035 | Time: 13.7s | ETA: 0.0s
+      [Client 1] Local training done in 27.4s
+    └─ Client 1 complete
+
+    ┌─ Client 2 (3/3) | 415 samples | 1 generators
+      [Client 2] Epoch 1/2 | Loss: 2.0796 | Time: 10.3s | ETA: 10.3s
+      [Client 2] Epoch 2/2 | Loss: 0.7990 | Time: 10.4s | ETA: 0.0s
+      [Client 2] Local training done in 20.7s
+    └─ Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.04s
+
+  Evaluating global model...
+    [Eval] Batch 12/24 (50%) | Elapsed: 19.3s
+    [Eval] Batch 24/24 (100%) | Elapsed: 20.5s
+    [Eval] Complete (369 samples in 21.4s)
+    [Eval] Threshold: 0.500 (default; default 0.5)  AUC is threshold-free
+
+  ╔══ Round 12/12 Results ══
+  ║ Accuracy:  0.5799
+  ║ Precision: 1.0000
+  ║ Recall:    0.0882
+  ║ F1:        0.1622
+  ║ AUC:       0.8917
+  ╟──
+  ║ Round time: 1m 42s | Total elapsed: 21m 8s | ETA: 0.0s
+  ╚══
+
+============================================================
+  FEDERATED TRAINING COMPLETE
+  Total time:  21m 8s
+  Best AUC:    0.9554
+  Total rounds: 12
+  Avg round:   1m 45s
+============================================================
+
+
+  Loading best federated checkpoint for final test evaluation...
+
+  Final evaluation on validation split...
+    [Eval] Batch 12/24 (50%) | Elapsed: 19.4s
+    [Eval] Batch 24/24 (100%) | Elapsed: 20.6s
+    [Eval] Complete (369 samples in 21.5s)
+    [Eval] Threshold: 0.500 (default; default 0.5)  AUC is threshold-free
+  [Federated Val] | Acc: 0.8645 | Prec: 0.8947 | Rec: 0.8000 | F1: 0.8447 | AUC: 0.9554
+
+  Final test evaluation using validation threshold...
+    [Eval] Batch 12/24 (50%) | Elapsed: 19.1s
+    [Eval] Batch 24/24 (100%) | Elapsed: 20.7s
+    [Eval] Complete (370 samples in 21.6s)
+    [Eval] Threshold: 0.500 (provided; default 0.5)  AUC is threshold-free
+  [Federated Test] | Acc: 0.8162 | Prec: 0.8280 | Rec: 0.7602 | F1: 0.7927 | AUC: 0.9037
+
+============================================================
+  FEDERATED PIPELINE COMPLETE
+  Phase 1 (Teacher):    11m 46s
+  Phase 2 (Federated):  21m 8s
+  Total pipeline time:  33m 42s
+
+  Best round: 3/12
+  Best Val AUC: 0.9554
+  Best F1:    0.8447
+  Best Acc:   0.8645
+  Test AUC:   0.9037

@@ -44,10 +44,10 @@ def check_kd_decomposition(kd_losses: Dict[str, torch.Tensor], loss_kd: torch.Te
     if not DEBUG:
         return
     # loss_feat should NOT contain logits
-    feat_only = kd_losses["semantic"] + kd_losses["forensic"] + kd_losses["embedding"]
+    feat_only = kd_losses["embedding"]
     assert torch.allclose(loss_feat, feat_only, atol=1e-6), (
         f"[DEBUG] KD decomposition error: loss_feat={loss_feat.item():.6f} "
-        f"!= semantic+forensic+embedding={feat_only.item():.6f}. "
+        f"!= embedding={feat_only.item():.6f}. "
         f"Possible double-counting of logits KD."
     )
     assert torch.allclose(loss_kd, kd_losses["logits"], atol=1e-6), (
@@ -86,12 +86,10 @@ def check_model_output(out: dict, embed_dim: int, batch_size: int, num_classes: 
     """Validate the standard model output dictionary."""
     if not DEBUG:
         return
-    required_keys = {"semantic_feat", "forensic_feat", "embedding", "logits"}
+    required_keys = {"embedding", "logits"}
     missing = required_keys - set(out.keys())
     assert not missing, f"[DEBUG] {tag} output missing keys: {missing}"
 
-    check_tensor(out["semantic_feat"], f"{tag}.semantic_feat", (batch_size, embed_dim))
-    check_tensor(out["forensic_feat"], f"{tag}.forensic_feat", (batch_size, embed_dim))
     check_tensor(out["embedding"], f"{tag}.embedding", (batch_size, embed_dim))
     check_tensor(out["logits"], f"{tag}.logits", (batch_size, num_classes))
 
@@ -100,7 +98,7 @@ def check_forensic_stack(x_for: torch.Tensor, batch_size: int, H: int, W: int) -
     """Validate forensic stack shape and finiteness."""
     if not DEBUG:
         return
-    check_tensor(x_for, "forensic_stack", (batch_size, 12, H, W))
+    check_tensor(x_for, "forensic_stack", (batch_size, 6, H, W))
     assert x_for.dtype == torch.float32, (
         f"[DEBUG] forensic_stack dtype should be float32, got {x_for.dtype} "
         f"(was it computed inside autocast?)"
@@ -116,9 +114,8 @@ def check_teacher_frozen(teacher: nn.Module) -> None:
         assert not p.requires_grad, f"[DEBUG] Teacher parameter '{name}' is not frozen"
 
 
-def print_loss_decomposition(ce: float, kd: float, feat: float, supcon: float,
-                              total: float, lambda_kd: float, lambda_feat: float,
-                              lambda_supcon: float) -> None:
+def print_loss_decomposition(ce: float, kd: float, feat: float,
+                              total: float, lambda_kd: float, lambda_feat: float) -> None:
     """Print detailed loss breakdown for debugging."""
     if not DEBUG:
         return
@@ -126,5 +123,4 @@ def print_loss_decomposition(ce: float, kd: float, feat: float, supcon: float,
     print(f"      CE:     {ce:.4f} (weight: 1.0)")
     print(f"      KD:     {kd:.4f} (weight: {lambda_kd}  → contrib: {lambda_kd * kd:.4f})")
     print(f"      Feat:   {feat:.4f} (weight: {lambda_feat} → contrib: {lambda_feat * feat:.4f})")
-    print(f"      SupCon: {supcon:.4f} (weight: {lambda_supcon} → contrib: {lambda_supcon * supcon:.4f})")
     print(f"      Total:  {total:.4f}")

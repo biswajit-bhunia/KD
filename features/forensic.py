@@ -16,27 +16,16 @@ def _get_srm_kernels(device):
             [[0, 0, 0],
              [0, 1, -1],
              [0, 0, 0]],
-            [[0, 0, 0],
-             [0, -1, 1],
-             [0, 0, 0]],
             [[0, 1, 0],
              [0, -1, 0],
              [0, 0, 0]],
+            [[0, 1, 0],
+             [1, -4, 1],
+             [0, 1, 0]],
         ], dtype=torch.float32, device=device).unsqueeze(1)  # (3,1,3,3)
         _kernel_cache[key] = kernels
     return _kernel_cache[key]
 
-
-def _get_laplacian_kernel(device):
-    key = ('lap', device)
-    if key not in _kernel_cache:
-        kernel = torch.tensor([
-            [0, 1, 0],
-            [1, -4, 1],
-            [0, 1, 0]
-        ], dtype=torch.float32, device=device).view(1, 1, 3, 3)
-        _kernel_cache[key] = kernel
-    return _kernel_cache[key]
 
 
 # ---------------------------
@@ -97,49 +86,6 @@ def compute_fft(image):
 
 
 # ---------------------------
-# Wavelet (Haar approx)
-# ---------------------------
-def compute_wavelet(image):
-    """
-    Simple Haar-like decomposition using pooling differences.
-    """
-    x = _to_bchw(image)
-
-    # Low frequency
-    low = F.avg_pool2d(x, kernel_size=2, stride=2)
-
-    # Issue #2: use size= instead of scale_factor=2 to handle odd dimensions
-    # scale_factor=2 would produce 127→254 instead of 255, causing shape mismatch
-    low_up = F.interpolate(low, size=x.shape[-2:], mode='bilinear', align_corners=False)
-
-    # High frequency residual
-    high = x - low_up
-
-    return high.squeeze(0) if image.dim() == 3 else high
-
-
-# ---------------------------
-# Laplacian edge
-# ---------------------------
-def compute_laplacian(image):
-    """
-    Laplacian edge detector — computed per-channel (R, G, B independently)
-    to capture colour-channel-specific edge artifacts.
-    """
-    x = _to_bchw(image)
-
-    # Issue #4: use cached kernel
-    kernel = _get_laplacian_kernel(x.device)
-
-    # Depthwise convolution: apply the same Laplacian kernel to each
-    # of the 3 RGB channels independently (groups=3)
-    kernel_3ch = kernel.repeat(3, 1, 1, 1)  # (3, 1, 3, 3)
-    edges = F.conv2d(x, kernel_3ch, padding=1, groups=3)  # (B, 3, H, W)
-
-    return edges.squeeze(0) if image.dim() == 3 else edges
-
-
-# ---------------------------
 # Final stack
 # ---------------------------
 def build_forensic_stack(image):
@@ -147,11 +93,9 @@ def build_forensic_stack(image):
     Input:  (3,H,W) or (B,3,H,W)
     Output: (C,H,W) or (B,C,H,W)
 
-    C = 3 (srm) + 3 (fft) + 3 (wavelet) + 3 (laplacian) = 12
+    C = 3 (srm) + 3 (fft) = 6
     """
     srm = compute_srm(image)
     fft = compute_fft(image)
-    wavelet = compute_wavelet(image)
-    laplacian = compute_laplacian(image)
 
-    return torch.cat([srm, fft, wavelet, laplacian], dim=-3)
+    return torch.cat([srm, fft], dim=-3)

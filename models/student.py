@@ -3,15 +3,15 @@ Dual-Domain Student Model
 ─────────────────────────
 Architecture:
   Semantic Student  — MobileNetV2 (pretrained) on RGB (B,3,H,W)
-  Forensic Student  — Lightweight 5-layer CNN on forensic stack (B,12,H,W)
+  Forensic Student  — Lightweight 5-layer CNN on forensic stack (B,6,H,W)
   Fusion            — GatedFusion (learned sigmoid gate)
   Classifier        — Linear(embed_dim, 2)
 
 Design decisions:
   - MobileNetV2 for semantic: pretrained ImageNet features transfer well to
     face/manipulation understanding.  ~2.5M params.
-  - Lightweight CNN for forensic: the 12-ch forensic stack is hand-crafted
-    (SRM, FFT, wavelet, Laplacian) — no benefit from ImageNet pretraining.
+  - Lightweight CNN for forensic: the 6-ch forensic stack is hand-crafted
+    (SRM, FFT) — no benefit from ImageNet pretraining.
     A custom CNN is more parameter-efficient (~500K).
   - Total student: ~3.1M params — fits within the 3-5M target for
     federated learning (consumer GPUs, efficient communication).
@@ -87,20 +87,20 @@ class SemanticStudentBranch(nn.Module):
 # ---------------------------
 class ForensicStudentCNN(nn.Module):
     """
-    Lightweight 5-layer CNN for the 12-channel forensic feature stack.
+    Lightweight 5-layer CNN for the 6-channel forensic feature stack.
 
     Rationale: The forensic stack is already composed of hand-crafted
-    signal-processing features (SRM, FFT, wavelet, Laplacian).
+    signal-processing features (SRM, FFT).
     MobileNetV2's value is its ImageNet pretraining, which does not
     transfer to these engineered signals.  A custom CNN is more
     parameter-efficient (~500K vs ~2.5M) while providing sufficient
     capacity to distill from the ResNet-18 forensic teacher.
 
-    Input:  (B, 12, H, W) — forensic feature stack
+    Input:  (B, 6, H, W) — forensic feature stack
     Output: (B, out_dim)   — forensic feature vector
     """
 
-    def __init__(self, in_channels: int = 12, out_dim: int = 256):
+    def __init__(self, in_channels: int = 6, out_dim: int = 256):
         super().__init__()
 
         self.net = nn.Sequential(
@@ -146,7 +146,7 @@ class ForensicStudentCNN(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            x: (B, 12, H, W) forensic feature stack
+            x: (B, 6, H, W) forensic feature stack
         Returns:
             feat: (B, out_dim) forensic feature vector
         """
@@ -171,10 +171,10 @@ class StudentModel(nn.Module):
 
     Forward:
         x_rgb:      (B, 3, H, W)  — RGB image
-        x_forensic: (B, 12, H, W) — forensic feature stack
+        x_forensic: (B, 6, H, W) — forensic feature stack
 
     Returns:
-        dict with keys: semantic_feat, forensic_feat, embedding, logits
+        dict with keys: embedding, logits
 
     NOTE: Forward signature changed from old (x_forensic, x_grad) to (x_rgb, x_forensic).
     """
@@ -189,7 +189,7 @@ class StudentModel(nn.Module):
 
         # Dual-domain branches
         self.semantic_student = SemanticStudentBranch(pretrained=pretrained, out_dim=embed_dim)
-        self.forensic_student = ForensicStudentCNN(in_channels=12, out_dim=embed_dim)
+        self.forensic_student = ForensicStudentCNN(in_channels=6, out_dim=embed_dim)
 
         # Gated fusion (same module as teacher for consistency)
         self.fusion = GatedFusion(feat_dim=embed_dim)
@@ -206,12 +206,10 @@ class StudentModel(nn.Module):
         """
         Args:
             x_rgb:      (B, 3, H, W) RGB image
-            x_forensic: (B, 12, H, W) forensic feature stack
+            x_forensic: (B, 6, H, W) forensic feature stack
 
         Returns:
             dict:
-                semantic_feat: (B, embed_dim) — for branch-level KD
-                forensic_feat: (B, embed_dim) — for branch-level KD
                 embedding:     (B, embed_dim) — fused representation
                 logits:        (B, num_classes)
         """
@@ -221,14 +219,12 @@ class StudentModel(nn.Module):
 
         # Gated fusion
         E_fused = self.fusion(E_sem, E_for)        # (B, embed_dim)
-        E_fused = self.dropout(E_fused)
+        E_fused_dropped = self.dropout(E_fused)
 
         # Classification
-        logits = self.classifier(E_fused)          # (B, num_classes)
+        logits = self.classifier(E_fused_dropped)  # (B, num_classes)
 
         return {
-            "semantic_feat": E_sem,
-            "forensic_feat": E_for,
             "embedding": E_fused,
             "logits": logits,
         }

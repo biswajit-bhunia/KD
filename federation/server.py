@@ -57,19 +57,16 @@ class FederatedServer:
         lr: float = 3e-4,
         lambda_kd: float = 0.1,
         lambda_feat_kd: float = 0.5,
-        lambda_supcon: float = 0.05,
-        lambda_grl: float = 0.0,
-        max_lambda_grl: float = 0.0,
+
         mu: float = 0.001,
         temperature_kd: float = 4.0,
-        temperature_supcon: float = 0.07,
         save_path: str = "checkpoints/student_federated_best.pth",
     ):
         print(f"\n{'='*60}")
         print(f"  Federated Training Configuration")
         print(f"  Rounds: {num_rounds} | Clients/round: {self.clients_per_round}/{len(self.clients)}")
         print(f"  Local epochs: {local_epochs} | LR: {lr}")
-        print(f"  FedProx μ: {mu} | λ_kd: {lambda_kd} | λ_feat: {lambda_feat_kd} | λ_sc: {lambda_supcon} | λ_grl: {lambda_grl}")
+        print(f"  FedProx μ: {mu} | λ_kd: {lambda_kd} | λ_feat: {lambda_feat_kd}")
         print(f"{'='*60}\n")
 
         total_start = time.time()
@@ -104,12 +101,10 @@ class FederatedServer:
                     local_epochs=local_epochs,
                     lambda_kd=lambda_kd,
                     lambda_feat_kd=lambda_feat_kd,
-                    lambda_supcon=lambda_supcon,
-                    lambda_grl=lambda_grl,
-                    max_lambda_grl=max_lambda_grl,
+
                     mu=mu,
                     temperature_kd=temperature_kd,
-                    temperature_supcon=temperature_supcon,
+                    round_idx=round_idx,
                 )
 
                 # Move local state to CPU before appending to prevent GPU OOM

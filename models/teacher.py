@@ -3,7 +3,7 @@ Dual-Domain Teacher Model
 ─────────────────────────
 Architecture:
   Semantic Teacher  — ResNet-50 on RGB (B,3,H,W)
-  Forensic Teacher  — ResNet-18 on forensic stack (B,12,H,W)
+  Forensic Teacher  — ResNet-18 on forensic stack (B,6,H,W)
   Fusion            — GatedFusion (learned sigmoid gate)
   Classifier        — Linear(embed_dim, 2)
 
@@ -78,16 +78,16 @@ class SemanticTeacher(nn.Module):
 # ---------------------------
 class ForensicTeacher(nn.Module):
     """
-    ResNet-18 backbone modified for 12-channel forensic input.
+    ResNet-18 backbone modified for 6-channel forensic input.
 
     Purpose: artifact learning, frequency inconsistencies,
     manipulation traces, forensic texture representations.
 
-    Input:  (B, 12, H, W) — forensic feature stack (SRM + FFT + wavelet + Laplacian)
+    Input:  (B, 6, H, W) — forensic feature stack (SRM + FFT)
     Output: (B, out_dim)   — forensic feature vector
 
-    The first conv layer is replaced with a 12-channel version.
-    Pretrained weights are transferred by repeating the 3-ch weights 4x.
+    The first conv layer is replaced with a 6-channel version.
+    Pretrained weights are transferred by repeating the 3-ch weights 2x.
     """
 
     def __init__(self, pretrained: bool = True, out_dim: int = 256):
@@ -96,20 +96,20 @@ class ForensicTeacher(nn.Module):
         weights = ResNet18_Weights.IMAGENET1K_V1 if pretrained else None
         model = models.resnet18(weights=weights)
 
-        # Replace first conv: 3 → 12 channels
+        # Replace first conv: 3 → 6 channels
         old_conv = model.conv1  # Conv2d(3, 64, 7, stride=2, padding=3)
         new_conv = nn.Conv2d(
-            12, 64, kernel_size=7, stride=2, padding=3, bias=False
+            6, 64, kernel_size=7, stride=2, padding=3, bias=False
         )
 
-        # Transfer pretrained weights: repeat 3-ch weights 4 times for 12 channels
+        # Transfer pretrained weights: repeat 3-ch weights 2 times for 6 channels
         if pretrained and old_conv.weight is not None:
             with torch.no_grad():
-                # old_conv.weight: (64, 3, 7, 7) → repeat along channel dim → (64, 12, 7, 7)
-                # Scale by 1/sqrt(4) to preserve activation variance: conv sums over
-                # input channels, so repeating identical weights 4× inflates variance
-                # by 4×. Dividing by sqrt(4) = 2 restores the pretrained activation scale.
-                new_conv.weight.copy_(old_conv.weight.repeat(1, 4, 1, 1) / (4 ** 0.5))
+                # old_conv.weight: (64, 3, 7, 7) → repeat along channel dim → (64, 6, 7, 7)
+                # Scale by 1/sqrt(2) to preserve activation variance: conv sums over
+                # input channels, so repeating identical weights 2× inflates variance
+                # by 2×. Dividing by sqrt(2) restores the pretrained activation scale.
+                new_conv.weight.copy_(old_conv.weight.repeat(1, 2, 1, 1) / (2 ** 0.5))
         model.conv1 = new_conv
 
         # Remove classifier — keep everything up to avgpool
@@ -126,7 +126,7 @@ class ForensicTeacher(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            x: (B, 12, H, W) forensic feature stack
+            x: (B, 6, H, W) forensic feature stack
         Returns:
             feat: (B, out_dim) forensic feature vector
         """
@@ -151,10 +151,10 @@ class TeacherModel(nn.Module):
 
     Forward:
         x_rgb:      (B, 3, H, W)  — RGB image
-        x_forensic: (B, 12, H, W) — forensic feature stack
+        x_forensic: (B, 6, H, W) — forensic feature stack
 
     Returns:
-        dict with keys: semantic_feat, forensic_feat, embedding, logits
+        dict with keys: embedding, logits
     """
 
     def __init__(
@@ -184,12 +184,10 @@ class TeacherModel(nn.Module):
         """
         Args:
             x_rgb:      (B, 3, H, W) RGB image
-            x_forensic: (B, 12, H, W) forensic feature stack
+            x_forensic: (B, 6, H, W) forensic feature stack
 
         Returns:
             dict:
-                semantic_feat: (B, embed_dim)
-                forensic_feat: (B, embed_dim)
                 embedding:     (B, embed_dim)
                 logits:        (B, num_classes)
         """
@@ -199,14 +197,12 @@ class TeacherModel(nn.Module):
 
         # Gated fusion
         E_fused = self.fusion(E_sem, E_for)  # (B, embed_dim)
-        E_fused = self.dropout(E_fused)
+        E_fused_dropped = self.dropout(E_fused)
 
         # Classification
-        logits = self.classifier(E_fused)    # (B, num_classes)
+        logits = self.classifier(E_fused_dropped)    # (B, num_classes)
 
         return {
-            "semantic_feat": E_sem,
-            "forensic_feat": E_for,
             "embedding": E_fused,
             "logits": logits,
         }

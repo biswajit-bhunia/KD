@@ -5,31 +5,6 @@ from typing import List, Tuple
 import torch
 
 
-# def fedavg_aggregate(
-#     global_state_dict: OrderedDict,
-#     client_updates: List[Tuple[OrderedDict, int]]
-# ) -> OrderedDict:
-#     if not client_updates:
-#         return copy.deepcopy(global_state_dict)
-
-#     # Total samples across all clients
-#     total_samples = sum(n for _, n in client_updates)
-
-#     # Initialize aggregated dict
-#     aggregated = OrderedDict()
-
-#     for key in global_state_dict.keys():
-#         # Weighted sum of client parameters
-#         aggregated[key] = torch.zeros_like(global_state_dict[key], dtype=torch.float32)
-
-#         for client_state, num_samples in client_updates:
-#             weight = num_samples / total_samples
-#             aggregated[key] += weight * client_state[key].float()
-
-#         # Preserve original dtype (e.g., BatchNorm running stats are float)
-#         aggregated[key] = aggregated[key].to(global_state_dict[key].dtype)
-
-#     return aggregated
 
 
 def fedavg_aggregate(

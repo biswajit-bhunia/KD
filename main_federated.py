@@ -79,11 +79,7 @@ def main():
     seed_everything(seed, deterministic=deterministic)
     lambda_kd     = config["lambda_kd"]
     lambda_feat_kd = config.get("lambda_feat_kd", 0.5)
-    lambda_supcon = config["lambda_supcon"]
-    lambda_grl    = config["lambda_grl"]
-    max_lambda_grl = config.get("max_lambda_grl", 0.0)
     temp_kd        = config.get("temperature_kd", 4.0)
-    temp_supcon    = config.get("temperature_supcon", 0.07)
     teacher_epochs = config.get("teacher_epochs", 5)
 
     # Federated params
@@ -99,7 +95,7 @@ def main():
     print(f"\n{'='*60}")
     print(f"  Federated Deepfake Detection Pipeline (Dual-Domain)")
     print(f"  Device: {device} | Batch: {batch_size} | LR: {lr}")
-    print(f"  λ_kd: {lambda_kd} | λ_feat: {lambda_feat_kd} | λ_sc: {lambda_supcon} | λ_grl: {lambda_grl}")
+    print(f"  λ_kd: {lambda_kd} | λ_feat: {lambda_feat_kd}")
     print(f"  Clients: {num_clients} | Rounds: {num_rounds} | "
           f"Local epochs: {local_epochs}")
     print(f"  FedProx μ: {mu} | IID: {iid_partition}")
@@ -233,8 +229,7 @@ def main():
         dataloader=train_loader_full,
         optimizer=teacher_opt,
         device=device,
-        epochs=teacher_epochs,
-        lambda_supcon=lambda_supcon
+        epochs=teacher_epochs
     )
 
     print("\n  Evaluating teacher...")
@@ -327,12 +322,8 @@ def main():
         lr=lr,
         lambda_kd=lambda_kd,
         lambda_feat_kd=lambda_feat_kd,
-        lambda_supcon=lambda_supcon,
-        lambda_grl=lambda_grl,
-        max_lambda_grl=max_lambda_grl,
         mu=mu,
         temperature_kd=temp_kd,
-        temperature_supcon=temp_supcon,
         save_path=best_federated_path,
     )
 
@@ -341,8 +332,8 @@ def main():
     print("\n  Loading best federated checkpoint for final test evaluation...")
     global_student.load_state_dict(torch.load(best_federated_path, map_location=device, weights_only=True))
 
-    print("\n  Calibrating final threshold on validation split...")
-    final_val_metrics = evaluate(global_student, val_loader, device, calibrate_threshold=True)
+    print("\n  Final evaluation on validation split...")
+    final_val_metrics = evaluate(global_student, val_loader, device)
     print_metrics("  [Federated Val]", final_val_metrics)
 
     print("\n  Final test evaluation using validation threshold...")

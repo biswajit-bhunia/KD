@@ -6,24 +6,19 @@ val_generator_name: "NeuralTextures"           # held-out for validation (Reenac
 test_generator_name: "DeepFaceLab"       # held-out for final test (Identity Swap)
 # Training Epochs
 teacher_epochs: 10
-student_epochs: 15
-grl_epochs: 0                  # GRL disabled — set > 0 to re-enable
+student_epochs: 10
 
 # Loss weights
 lambda_kd: 0.3
 lambda_feat_kd: 0.5            # multi-level feature KD weight (semantic + forensic + embedding)
-lambda_supcon: 0.03
-lambda_grl: 0.0                # GRL disabled — forensic branch benefits from generator-sensitive features
-max_lambda_grl: 0.0            # hard ceiling — GRL sigmoid ramps from ~0 to this over training
 
 # Temperatures
-temperature_kd: 4.0
-temperature_supcon: 0.15
+temperature_kd: 2.0
 
 # ----- Federated Learning -----
-num_clients: 4            # number of federated clients
-num_rounds: 15            # number of federated rounds (was 5 — model was still improving)
-local_epochs: 3           # local training epochs per client per round (was 2)
+num_clients: 3            # number of federated clients
+num_rounds: 12            # number of federated rounds (was 5 — model was still improving)
+local_epochs: 2           # local training epochs per client per round (was 2)
 clients_per_round: null   # null = all clients participate each round
 fedprox_mu: 0.05          # proximal term weight (was 0.01 — too weak to prevent client drift)
 iid_partition: false      # false = non-IID (split by generator, realistic)

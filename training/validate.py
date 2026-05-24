@@ -40,7 +40,7 @@ def evaluate(
     dataloader,
     device,
     threshold=None,
-    calibrate_threshold=True,
+    calibrate_threshold=False,
 ):
     """
     Evaluate a model (teacher or student) on a dataloader.

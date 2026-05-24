@@ -29,8 +29,7 @@ from models.student import StudentModel
 # Training
 from training.train import (
     train_teacher,
-    train_student,
-    train_with_grl
+    train_student
 )
 
 # Evaluation
@@ -82,21 +81,16 @@ def main():
 
     lambda_kd      = config["lambda_kd"]
     lambda_feat_kd = config.get("lambda_feat_kd", 0.5)
-    lambda_supcon  = config["lambda_supcon"]
-    lambda_grl     = config["lambda_grl"]
-    max_lambda_grl = config.get("max_lambda_grl", 0.0)
     temp_kd        = config.get("temperature_kd", 4.0)
-    temp_supcon    = config.get("temperature_supcon", 0.07)
     teacher_epochs = config.get("teacher_epochs", 5)
     student_epochs = config.get("student_epochs", 12)
-    grl_epochs     = config.get("grl_epochs", 0)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print(f"\n{'='*60}")
     print(f"  Centralized Deepfake Detection Pipeline (Dual-Domain)")
     print(f"  Device: {device} | Batch: {batch_size} | LR: {lr}")
-    print(f"  λ_kd: {lambda_kd} | λ_feat: {lambda_feat_kd} | λ_sc: {lambda_supcon} | λ_grl: {lambda_grl}")
+    print(f"  λ_kd: {lambda_kd} | λ_feat: {lambda_feat_kd}")
     print(f"{'='*60}")
 
     # ---------------------------
@@ -178,18 +172,21 @@ def main():
     counts  = Counter(train_labels)
     weights = [1.0 / counts[l] for l in train_labels]
 
-    train_generator = make_generator(seed)
-    sampler = WeightedRandomSampler(weights, len(weights), replacement=True, generator=train_generator)
+    def _build_train_loader(dataset, loader_seed):
+        gen = make_generator(loader_seed)
+        samp = WeightedRandomSampler(weights, len(weights), replacement=True, generator=gen)
+        return DataLoader(
+            dataset,
+            batch_size=batch_size,
+            sampler=samp,
+            num_workers=4,
+            pin_memory=True,
+            worker_init_fn=seed_worker,
+            generator=gen,
+        )
 
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        sampler=sampler,
-        num_workers=4,
-        pin_memory=True,
-        worker_init_fn=seed_worker,
-        generator=train_generator,
-    )
+    teacher_train_loader = _build_train_loader(train_dataset, seed)
+    student_train_loader = _build_train_loader(train_dataset, seed + 100)
 
     val_loader = DataLoader(
         val_dataset,
@@ -209,7 +206,7 @@ def main():
         generator=make_generator(seed + 2),
     )
 
-    print(f"  Train batches: {len(train_loader)} | Val batches: {len(val_loader)} | Test batches: {len(test_loader)}")
+    print(f"  Train batches: {len(teacher_train_loader)} | Val batches: {len(val_loader)} | Test batches: {len(test_loader)}")
 
     # ---------------------------
     # 4. Initialize Models
@@ -240,12 +237,10 @@ def main():
     stage1_start = time.time()
     train_teacher(
         model=teacher,
-        dataloader=train_loader,
+        dataloader=teacher_train_loader,
         optimizer=teacher_opt,
         device=device,
-        epochs=teacher_epochs,
-        lambda_supcon=lambda_supcon,
-        temperature_supcon=temp_supcon
+        epochs=teacher_epochs
     )
 
     print("\n  Evaluating teacher...")
@@ -272,18 +267,16 @@ def main():
     train_student(
         student=student,
         teacher=teacher,
-        dataloader=train_loader,
+        dataloader=student_train_loader,
         optimizer=student_opt,
         device=device,
         epochs=student_epochs,
         lambda_kd=lambda_kd,
         lambda_feat_kd=lambda_feat_kd,
-        lambda_supcon=lambda_supcon,
         val_loader=val_loader,
         val_every=3,
         patience=6,
-        temperature_kd=temp_kd,
-        temperature_supcon=temp_supcon
+        temperature_kd=temp_kd
     )
 
     print("\n  Evaluating student...")
@@ -300,82 +293,24 @@ def main():
     torch.cuda.empty_cache()
 
     # ---------------------------
-    # 8. Stage 3: Generator Invariance (GRL) — Optional
+    # 8. Final Evaluation
     # ---------------------------
-    if grl_epochs > 0:
-        print(f"\n{'─'*60}")
-        print(f"  STAGE 3: Training with GRL ({grl_epochs} epochs)")
-        print(f"{'─'*60}")
+    print("\n  Final evaluation on validation split...")
+    metrics = evaluate(student, val_loader, device)
+    print_metrics("  [Val]", metrics)
 
-        num_generators = len(set(s[2] for s in train_samples if s[1] == 1))
-        print(f"  → Number of train fake generators used for GRL: {num_generators}")
+    print("\n  Final test evaluation using validation threshold...")
+    test_metrics = evaluate(
+        student,
+        test_loader,
+        device,
+        threshold=metrics["threshold"],
+        calibrate_threshold=False,
+    )
+    print_metrics("  [Test]", test_metrics)
 
-        stage3_start = time.time()
-        student_opt_grl = train_with_grl(
-            student=student,
-            teacher=teacher,
-            dataloader=train_loader,
-            optimizer=student_opt,
-            device=device,
-            num_generators=num_generators,
-            epochs=grl_epochs,
-            lambda_kd=lambda_kd,
-            lambda_feat_kd=lambda_feat_kd,
-            lambda_supcon=lambda_supcon,
-            base_lambda_grl=lambda_grl,
-            max_lambda_grl=max_lambda_grl,
-            val_loader=val_loader,
-            val_every=3,
-            patience=2,
-            temperature_kd=temp_kd,
-            temperature_supcon=temp_supcon
-        )
-
-        print("\n  Evaluating student (GRL) on validation for threshold calibration...")
-        metrics = evaluate(student, val_loader, device, calibrate_threshold=True)
-        print_metrics("  [GRL Val]", metrics)
-
-        print("\n  Final test evaluation using validation threshold...")
-        test_metrics = evaluate(
-            student,
-            test_loader,
-            device,
-            threshold=metrics["threshold"],
-            calibrate_threshold=False,
-        )
-        print_metrics("  [GRL Test]", test_metrics)
-
-        save_checkpoint(student, student_opt_grl, epoch=teacher_epochs + student_epochs + grl_epochs,
-                        path="checkpoints/student_final.pth")
-        stage3_time = time.time() - stage3_start
-        print(f"  → Saved final student checkpoint (Val AUC={metrics['auc']:.4f} | Test AUC={test_metrics['auc']:.4f})")
-        print(f"  → Stage 3 complete in {_fmt_time(stage3_time)}")
-
-        if metrics["auc"] > best_student_auc:
-            save_checkpoint(student, student_opt_grl, epoch=teacher_epochs + student_epochs + grl_epochs,
-                            path="checkpoints/student_best.pth")
-            print(f"  → New best student! AUC improved: {best_student_auc:.4f} → {metrics['auc']:.4f}")
-    else:
-        print(f"\n  ℹ Stage 3 (GRL) skipped — grl_epochs=0 in config")
-        stage3_time = 0.0
-
-        # Do final evaluation without GRL
-        print("\n  Calibrating final threshold on validation split...")
-        metrics = evaluate(student, val_loader, device, calibrate_threshold=True)
-        print_metrics("  [Val]", metrics)
-
-        print("\n  Final test evaluation using validation threshold...")
-        test_metrics = evaluate(
-            student,
-            test_loader,
-            device,
-            threshold=metrics["threshold"],
-            calibrate_threshold=False,
-        )
-        print_metrics("  [Test]", test_metrics)
-
-        save_checkpoint(student, student_opt, epoch=teacher_epochs + student_epochs,
-                        path="checkpoints/student_final.pth")
+    save_checkpoint(student, student_opt, epoch=teacher_epochs + student_epochs,
+                    path="checkpoints/student_final.pth")
 
     # ---------------------------
     # Final Summary
@@ -385,8 +320,7 @@ def main():
     print(f"  PIPELINE COMPLETE")
     print(f"  Stage 1 (Teacher):     {_fmt_time(stage1_time)}")
     print(f"  Stage 2 (Student KD):  {_fmt_time(stage2_time)}")
-    if grl_epochs > 0:
-        print(f"  Stage 3 (GRL):         {_fmt_time(stage3_time)}")
+
     print(f"  Total pipeline time:   {_fmt_time(total_time)}")
     print(f"  Best Teacher AUC:      {best_teacher_auc:.4f}")
     print(f"  Best Student Val AUC:  {max(best_student_auc, metrics['auc']):.4f}")
