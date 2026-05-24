@@ -87,8 +87,8 @@ def evaluate(
                     lambda img: img,                                         # Original
                     lambda img: TF.hflip(img),                               # Horizontal flip
                     lambda img: TF.gaussian_blur(img, kernel_size=[3, 3]),   # Mild blur
-                    lambda img: TF.adjust_brightness(img, 1.1),              # Brighter
-                    lambda img: TF.adjust_brightness(img, 0.9),              # Darker
+                    lambda img: torch.clamp(img * 1.1, -1.0, 1.0),           # Brighter
+                    lambda img: torch.clamp(img * 0.9, -1.0, 1.0),           # Darker
                 ]
                 for aug_fn in augs:
                     x_aug = aug_fn(x)

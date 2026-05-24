@@ -9,7 +9,7 @@ PS C:\Users\sayan\OneDrive\Desktop\federated-deepfake> python .\main_federated.p
 ============================================================
 
   Loading dataset...
-  Loaded 2317 samples (999 real, 1318 fake, 7 generators) in 0.1s
+  Loaded 2317 samples (999 real, 1318 fake, 7 generators) in 0.2s
   Train: 1574 | Val: 369 | Test: 370
   Train fake generators: DALL-E, DDPM, PNDM, Stable Diffusion, StyleGAN
   Val fake generator:    NeuralTextures
@@ -22,34 +22,34 @@ PS C:\Users\sayan\OneDrive\Desktop\federated-deepfake> python .\main_federated.p
 ────────────────────────────────────────────────────────────
   Teacher model: 35,481,666 parameters
   Train batches: 99
-  [Teacher] Epoch 1/10 done | Loss: 0.3769 | LR: 0.000098 | Time: 50.1s | ETA: 7m 31s
-  [Teacher] Epoch 2/10 done | Loss: 0.2681 | LR: 0.000091 | Time: 45.1s | ETA: 6m 0s
-  [Teacher] Epoch 3/10 done | Loss: 0.1865 | LR: 0.000081 | Time: 44.1s | ETA: 5m 8s
+  [Teacher] Epoch 1/10 done | Loss: 0.4552 | LR: 0.000098 | Time: 52.8s | ETA: 7m 55s
+  [Teacher] Epoch 2/10 done | Loss: 0.3720 | LR: 0.000091 | Time: 46.2s | ETA: 6m 9s
+  [Teacher] Epoch 3/10 done | Loss: 0.3205 | LR: 0.000081 | Time: 44.1s | ETA: 5m 8s
   ✓ [Teacher] Health check passed (Epoch 3) — LR, loss, and components look normal.
 
-  [Teacher] Epoch 4/10 done | Loss: 0.1513 | LR: 0.000069 | Time: 44.6s | ETA: 4m 27s
-  [Teacher] Epoch 5/10 done | Loss: 0.1144 | LR: 0.000055 | Time: 45.7s | ETA: 3m 48s
-  [Teacher] Epoch 6/10 done | Loss: 0.0820 | LR: 0.000041 | Time: 44.4s | ETA: 2m 57s
+  [Teacher] Epoch 4/10 done | Loss: 0.2790 | LR: 0.000069 | Time: 44.1s | ETA: 4m 24s
+  [Teacher] Epoch 5/10 done | Loss: 0.2707 | LR: 0.000055 | Time: 43.9s | ETA: 3m 39s
+  [Teacher] Epoch 6/10 done | Loss: 0.2392 | LR: 0.000041 | Time: 44.0s | ETA: 2m 56s
   ✓ [Teacher] Health check passed (Epoch 6) — LR, loss, and components look normal.
 
-  [Teacher] Epoch 7/10 done | Loss: 0.0689 | LR: 0.000029 | Time: 44.0s | ETA: 2m 11s
-  [Teacher] Epoch 8/10 done | Loss: 0.0335 | LR: 0.000019 | Time: 43.8s | ETA: 1m 27s
-  [Teacher] Epoch 9/10 done | Loss: 0.0186 | LR: 0.000012 | Time: 44.0s | ETA: 44.0s
+  [Teacher] Epoch 7/10 done | Loss: 0.2372 | LR: 0.000029 | Time: 44.4s | ETA: 2m 13s
+  [Teacher] Epoch 8/10 done | Loss: 0.2208 | LR: 0.000019 | Time: 44.4s | ETA: 1m 28s
+  [Teacher] Epoch 9/10 done | Loss: 0.2154 | LR: 0.000012 | Time: 44.2s | ETA: 44.2s
   ✓ [Teacher] Health check passed (Epoch 9) — LR, loss, and components look normal.
 
-  [Teacher] Epoch 10/10 done | Loss: 0.0183 | LR: 0.000010 | Time: 43.6s | ETA: 0.0s
-  [Teacher] Training complete in 7m 29s
+  [Teacher] Epoch 10/10 done | Loss: 0.2146 | LR: 0.000010 | Time: 43.6s | ETA: 0.0s
+  [Teacher] Training complete in 7m 31s
 
   Evaluating teacher...
-    [Eval] Batch 12/24 (50%) | Elapsed: 22.8s
-    [Eval] Batch 24/24 (100%) | Elapsed: 24.7s
-    [Eval] Complete (369 samples in 25.6s)
-    [Eval] Threshold: 0.001 (val-calibrated; default 0.5)  AUC is threshold-free
-    [Eval] At t=0.5:   Acc=0.7534 | Rec=0.5059 | F1=0.6540
-    [Eval] At t=0.001: Acc=0.8320 | Rec=0.9000 | F1=0.8315 ← using this
-  [Teacher] | Acc: 0.8320 | Prec: 0.7727 | Rec: 0.9000 | F1: 0.8315 | AUC: 0.9152
-  → Saved teacher (AUC=0.9152)
-  → Phase 1 complete in 7m 57s
+    [Eval] Batch 12/24 (50%) | Elapsed: 22.9s
+    [Eval] Batch 24/24 (100%) | Elapsed: 24.8s
+    [Eval] Complete (369 samples in 25.8s)
+    [Eval] Threshold: 0.059 (val-calibrated; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.6802 | Rec=0.3588 | F1=0.5083
+    [Eval] At t=0.059: Acc=0.8293 | Rec=0.8529 | F1=0.8215 ← using this
+  [Teacher] | Acc: 0.8293 | Prec: 0.7923 | Rec: 0.8529 | F1: 0.8215 | AUC: 0.8901
+  → Saved teacher (AUC=0.8901)
+  → Phase 1 complete in 7m 59s
 
   Initializing student model...
   Student model: 4,304,066 parameters (12.1% of teacher)
@@ -64,7 +64,7 @@ PS C:\Users\sayan\OneDrive\Desktop\federated-deepfake> python .\main_federated.p
   Client 1: 731 samples (299 real, 432 fake) | generators: [1, 2]
     breakdown: g1:207 | g2:225
 
-  Partitioned in 0.00s
+  Partitioned in 0.02s
 
   Creating federated clients...
     Client 0: 843 samples | 3 generators [6, 7, 8] | 53 batches
@@ -90,13 +90,13 @@ PS C:\Users\sayan\OneDrive\Desktop\federated-deepfake> python .\main_federated.p
 
     ┌─ Client 0 (1/2) | 843 samples | 3 generators
       [Client 0] LR this round: 0.000100
-      [Client 0] Epoch 1/1 | Loss: 1.2174 | Time: 30.1s | ETA: 0.0s
-      [Client 0] Local training done in 30.2s
+      [Client 0] Epoch 1/1 | Loss: 0.7603 | Time: 29.7s | ETA: 0.0s
+      [Client 0] Local training done in 29.8s
     └─ Client 0 complete
 
     ┌─ Client 1 (2/2) | 731 samples | 2 generators
       [Client 1] LR this round: 0.000100
-      [Client 1] Epoch 1/1 | Loss: 1.0976 | Time: 19.4s | ETA: 0.0s
+      [Client 1] Epoch 1/1 | Loss: 0.7064 | Time: 19.3s | ETA: 0.0s
       [Client 1] Local training done in 19.4s
     └─ Client 1 complete
 
@@ -104,23 +104,23 @@ PS C:\Users\sayan\OneDrive\Desktop\federated-deepfake> python .\main_federated.p
   Aggregation done in 0.03s
 
   Evaluating global model...
-    [Eval] Batch 12/24 (50%) | Elapsed: 22.0s
-    [Eval] Batch 24/24 (100%) | Elapsed: 23.4s
-    [Eval] Complete (369 samples in 24.5s)
-    [Eval] Threshold: 0.203 (val-calibrated; default 0.5)  AUC is threshold-free
-    [Eval] At t=0.5:   Acc=0.5610 | Rec=0.0471 | F1=0.0899
-    [Eval] At t=0.203: Acc=0.8699 | Rec=0.9647 | F1=0.8723 ← using this
+    [Eval] Batch 12/24 (50%) | Elapsed: 22.1s
+    [Eval] Batch 24/24 (100%) | Elapsed: 23.5s
+    [Eval] Complete (369 samples in 24.6s)
+    [Eval] Threshold: 0.309 (val-calibrated; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.5474 | Rec=0.0176 | F1=0.0347
+    [Eval] At t=0.309: Acc=0.8699 | Rec=0.8176 | F1=0.8528 ← using this
 
   ╔══ Round 1/8 Results ══
   ║ Accuracy:  0.8699
-  ║ Precision: 0.7961
-  ║ Recall:    0.9647
-  ║ F1:        0.8723
-  ║ AUC:       0.9443
+  ║ Precision: 0.8910
+  ║ Recall:    0.8176
+  ║ F1:        0.8528
+  ║ AUC:       0.9444
   ╟──
-  ║ Round time: 1m 14s | Total elapsed: 1m 14s | ETA: 8m 39s
+  ║ Round time: 1m 13s | Total elapsed: 1m 13s | ETA: 8m 37s
   ╚══
-  ★ New best model! AUC: 0.9443 → saved to checkpoints/student_federated_best.pth
+  ★ New best model! AUC: 0.9444 → saved to checkpoints/student_federated_best.pth
 
 ──────────────────────────────────────────────────
   ROUND 2/8
@@ -129,35 +129,33 @@ PS C:\Users\sayan\OneDrive\Desktop\federated-deepfake> python .\main_federated.p
 
     ┌─ Client 0 (1/2) | 843 samples | 3 generators
       [Client 0] LR this round: 0.000097
-      [Client 0] Epoch 1/1 | Loss: 1.2189 | Time: 21.7s | ETA: 0.0s
-      [Client 0] Local training done in 21.8s
+      [Client 0] Epoch 1/1 | Loss: 0.7169 | Time: 22.0s | ETA: 0.0s
+      [Client 0] Local training done in 22.0s
     └─ Client 0 complete
 
     ┌─ Client 1 (2/2) | 731 samples | 2 generators
       [Client 1] LR this round: 0.000097
-      [Client 1] Epoch 1/1 | Loss: 0.8121 | Time: 19.2s | ETA: 0.0s
-      [Client 1] Local training done in 19.2s
+      [Client 1] Epoch 1/1 | Loss: 0.4557 | Time: 19.3s | ETA: 0.0s
+      [Client 1] Local training done in 19.3s
     └─ Client 1 complete
 
   Aggregating 2 client updates...
-  Aggregation done in 0.03s
+  Aggregation done in 0.04s
 
   Evaluating global model...
-    [Eval] Batch 12/24 (50%) | Elapsed: 20.3s
-    [Eval] Batch 24/24 (100%) | Elapsed: 21.5s
-    [Eval] Complete (369 samples in 22.5s)
-    [Eval] Threshold: 0.148 (val-calibrated; default 0.5)  AUC is threshold-free
-    [Eval] At t=0.5:   Acc=0.6612 | Rec=0.2647 | F1=0.4186
-    [Eval] At t=0.148: Acc=0.8564 | Rec=0.9471 | F1=0.8587 ← using this
+    [Eval] Batch 12/24 (50%) | Elapsed: 20.8s
+    [Eval] Batch 24/24 (100%) | Elapsed: 22.0s
+    [Eval] Complete (369 samples in 23.0s)
+    [Eval] Threshold: 0.486 (val-calibrated; default 0.5)  AUC is threshold-free
 
   ╔══ Round 2/8 Results ══
-  ║ Accuracy:  0.8564
-  ║ Precision: 0.7854
-  ║ Recall:    0.9471
-  ║ F1:        0.8587
-  ║ AUC:       0.9392
+  ║ Accuracy:  0.7995
+  ║ Precision: 0.7376
+  ║ Recall:    0.8765
+  ║ F1:        0.8011
+  ║ AUC:       0.9051
   ╟──
-  ║ Round time: 1m 3s | Total elapsed: 2m 17s | ETA: 6m 53s
+  ║ Round time: 1m 4s | Total elapsed: 2m 18s | ETA: 6m 55s
   ╚══
 
 ──────────────────────────────────────────────────
@@ -167,36 +165,37 @@ PS C:\Users\sayan\OneDrive\Desktop\federated-deepfake> python .\main_federated.p
 
     ┌─ Client 0 (1/2) | 843 samples | 3 generators
       [Client 0] LR this round: 0.000087
-      [Client 0] Epoch 1/1 | Loss: 1.0940 | Time: 21.8s | ETA: 0.0s
-      [Client 0] Local training done in 21.9s
+      [Client 0] Epoch 1/1 | Loss: 0.7113 | Time: 22.1s | ETA: 0.0s
+      [Client 0] Local training done in 22.2s
     └─ Client 0 complete
 
     ┌─ Client 1 (2/2) | 731 samples | 2 generators
       [Client 1] LR this round: 0.000087
-      [Client 1] Epoch 1/1 | Loss: 0.6117 | Time: 19.3s | ETA: 0.0s
-      [Client 1] Local training done in 19.3s
+      [Client 1] Epoch 1/1 | Loss: 0.3821 | Time: 19.3s | ETA: 0.0s
+      [Client 1] Local training done in 19.4s
     └─ Client 1 complete
 
   Aggregating 2 client updates...
-  Aggregation done in 0.03s
+  Aggregation done in 0.04s
 
   Evaluating global model...
-    [Eval] Batch 12/24 (50%) | Elapsed: 20.7s
-    [Eval] Batch 24/24 (100%) | Elapsed: 22.0s
-    [Eval] Complete (369 samples in 22.9s)
-    [Eval] Threshold: 0.127 (val-calibrated; default 0.5)  AUC is threshold-free
-    [Eval] At t=0.5:   Acc=0.7588 | Rec=0.5059 | F1=0.6590
-    [Eval] At t=0.127: Acc=0.8482 | Rec=0.9412 | F1=0.8511 ← using this
+    [Eval] Batch 12/24 (50%) | Elapsed: 20.6s
+    [Eval] Batch 24/24 (100%) | Elapsed: 21.8s
+    [Eval] Complete (369 samples in 22.8s)
+    [Eval] Threshold: 0.431 (val-calibrated; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.8916 | Rec=0.7941 | F1=0.8710
+    [Eval] At t=0.431: Acc=0.9295 | Rec=0.9176 | F1=0.9231 ← using this
 
   ╔══ Round 3/8 Results ══
-  ║ Accuracy:  0.8482
-  ║ Precision: 0.7767
-  ║ Recall:    0.9412
-  ║ F1:        0.8511
-  ║ AUC:       0.9241
+  ║ Accuracy:  0.9295
+  ║ Precision: 0.9286
+  ║ Recall:    0.9176
+  ║ F1:        0.9231
+  ║ AUC:       0.9810
   ╟──
-  ║ Round time: 1m 4s | Total elapsed: 3m 22s | ETA: 5m 36s
+  ║ Round time: 1m 4s | Total elapsed: 3m 22s | ETA: 5m 38s
   ╚══
+  ★ New best model! AUC: 0.9810 → saved to checkpoints/student_federated_best.pth
 
 ──────────────────────────────────────────────────
   ROUND 4/8
@@ -205,37 +204,36 @@ PS C:\Users\sayan\OneDrive\Desktop\federated-deepfake> python .\main_federated.p
 
     ┌─ Client 0 (1/2) | 843 samples | 3 generators
       [Client 0] LR this round: 0.000072
-      [Client 0] Epoch 1/1 | Loss: 1.0215 | Time: 22.2s | ETA: 0.0s
-      [Client 0] Local training done in 22.2s
+      [Client 0] Epoch 1/1 | Loss: 0.6597 | Time: 21.5s | ETA: 0.0s
+      [Client 0] Local training done in 21.5s
     └─ Client 0 complete
 
     ┌─ Client 1 (2/2) | 731 samples | 2 generators
       [Client 1] LR this round: 0.000072
-      [Client 1] Epoch 1/1 | Loss: 0.6832 | Time: 19.1s | ETA: 0.0s
-      [Client 1] Local training done in 19.2s
+      [Client 1] Epoch 1/1 | Loss: 0.3504 | Time: 19.3s | ETA: 0.0s
+      [Client 1] Local training done in 19.3s
     └─ Client 1 complete
 
   Aggregating 2 client updates...
-  Aggregation done in 0.03s
+  Aggregation done in 0.04s
 
   Evaluating global model...
-    [Eval] Batch 12/24 (50%) | Elapsed: 20.8s
-    [Eval] Batch 24/24 (100%) | Elapsed: 22.0s
-    [Eval] Complete (369 samples in 23.1s)
-    [Eval] Threshold: 0.311 (val-calibrated; default 0.5)  AUC is threshold-free
-    [Eval] At t=0.5:   Acc=0.8808 | Rec=0.8294 | F1=0.8650
-    [Eval] At t=0.311: Acc=0.8943 | Rec=0.9529 | F1=0.8926 ← using this
+    [Eval] Batch 12/24 (50%) | Elapsed: 21.5s
+    [Eval] Batch 24/24 (100%) | Elapsed: 22.8s
+    [Eval] Complete (369 samples in 23.7s)
+    [Eval] Threshold: 0.323 (val-calibrated; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.8266 | Rec=0.6412 | F1=0.7730
+    [Eval] At t=0.323: Acc=0.8889 | Rec=0.8882 | F1=0.8805 ← using this
 
   ╔══ Round 4/8 Results ══
-  ║ Accuracy:  0.8943
-  ║ Precision: 0.8394
-  ║ Recall:    0.9529
-  ║ F1:        0.8926
-  ║ AUC:       0.9674
+  ║ Accuracy:  0.8889
+  ║ Precision: 0.8728
+  ║ Recall:    0.8882
+  ║ F1:        0.8805
+  ║ AUC:       0.9565
   ╟──
-  ║ Round time: 1m 4s | Total elapsed: 4m 26s | ETA: 4m 26s
+  ║ Round time: 1m 4s | Total elapsed: 4m 27s | ETA: 4m 27s
   ╚══
-  ★ New best model! AUC: 0.9674 → saved to checkpoints/student_federated_best.pth
 
 ──────────────────────────────────────────────────
   ROUND 5/8
@@ -244,35 +242,35 @@ PS C:\Users\sayan\OneDrive\Desktop\federated-deepfake> python .\main_federated.p
 
     ┌─ Client 0 (1/2) | 843 samples | 3 generators
       [Client 0] LR this round: 0.000055
-      [Client 0] Epoch 1/1 | Loss: 0.7961 | Time: 21.5s | ETA: 0.0s
-      [Client 0] Local training done in 21.5s
+      [Client 0] Epoch 1/1 | Loss: 0.5250 | Time: 22.1s | ETA: 0.0s
+      [Client 0] Local training done in 22.2s
     └─ Client 0 complete
 
     ┌─ Client 1 (2/2) | 731 samples | 2 generators
       [Client 1] LR this round: 0.000055
-      [Client 1] Epoch 1/1 | Loss: 0.4130 | Time: 19.4s | ETA: 0.0s
-      [Client 1] Local training done in 19.4s
+      [Client 1] Epoch 1/1 | Loss: 0.2394 | Time: 19.4s | ETA: 0.0s
+      [Client 1] Local training done in 19.5s
     └─ Client 1 complete
 
   Aggregating 2 client updates...
-  Aggregation done in 0.04s
+  Aggregation done in 0.03s
 
   Evaluating global model...
     [Eval] Batch 12/24 (50%) | Elapsed: 20.9s
     [Eval] Batch 24/24 (100%) | Elapsed: 22.1s
-    [Eval] Complete (369 samples in 23.2s)
-    [Eval] Threshold: 0.012 (val-calibrated; default 0.5)  AUC is threshold-free
-    [Eval] At t=0.5:   Acc=0.6070 | Rec=0.1471 | F1=0.2564
-    [Eval] At t=0.012: Acc=0.8103 | Rec=0.8588 | F1=0.8066 ← using this
+    [Eval] Complete (369 samples in 23.1s)
+    [Eval] Threshold: 0.138 (val-calibrated; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.6585 | Rec=0.2706 | F1=0.4220
+    [Eval] At t=0.138: Acc=0.7995 | Rec=0.8235 | F1=0.7910 ← using this
 
   ╔══ Round 5/8 Results ══
-  ║ Accuracy:  0.8103
-  ║ Precision: 0.7604
-  ║ Recall:    0.8588
-  ║ F1:        0.8066
-  ║ AUC:       0.8945
+  ║ Accuracy:  0.7995
+  ║ Precision: 0.7609
+  ║ Recall:    0.8235
+  ║ F1:        0.7910
+  ║ AUC:       0.8831
   ╟──
-  ║ Round time: 1m 4s | Total elapsed: 5m 31s | ETA: 3m 18s
+  ║ Round time: 1m 4s | Total elapsed: 5m 32s | ETA: 3m 19s
   ╚══
 
 ──────────────────────────────────────────────────
@@ -282,35 +280,35 @@ PS C:\Users\sayan\OneDrive\Desktop\federated-deepfake> python .\main_federated.p
 
     ┌─ Client 0 (1/2) | 843 samples | 3 generators
       [Client 0] LR this round: 0.000038
-      [Client 0] Epoch 1/1 | Loss: 0.7868 | Time: 21.9s | ETA: 0.0s
+      [Client 0] Epoch 1/1 | Loss: 0.4495 | Time: 21.8s | ETA: 0.0s
       [Client 0] Local training done in 21.9s
     └─ Client 0 complete
 
     ┌─ Client 1 (2/2) | 731 samples | 2 generators
       [Client 1] LR this round: 0.000038
-      [Client 1] Epoch 1/1 | Loss: 0.3652 | Time: 19.1s | ETA: 0.0s
-      [Client 1] Local training done in 19.1s
+      [Client 1] Epoch 1/1 | Loss: 0.2183 | Time: 19.4s | ETA: 0.0s
+      [Client 1] Local training done in 19.4s
     └─ Client 1 complete
 
   Aggregating 2 client updates...
-  Aggregation done in 0.04s
+  Aggregation done in 0.05s
 
   Evaluating global model...
-    [Eval] Batch 12/24 (50%) | Elapsed: 20.5s
-    [Eval] Batch 24/24 (100%) | Elapsed: 21.8s
-    [Eval] Complete (369 samples in 22.7s)
-    [Eval] Threshold: 0.021 (val-calibrated; default 0.5)  AUC is threshold-free
-    [Eval] At t=0.5:   Acc=0.6585 | Rec=0.2588 | F1=0.4112
-    [Eval] At t=0.021: Acc=0.8780 | Rec=0.8647 | F1=0.8673 ← using this
+    [Eval] Batch 12/24 (50%) | Elapsed: 20.4s
+    [Eval] Batch 24/24 (100%) | Elapsed: 21.6s
+    [Eval] Complete (369 samples in 22.6s)
+    [Eval] Threshold: 0.076 (val-calibrated; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.6206 | Rec=0.1824 | F1=0.3069
+    [Eval] At t=0.076: Acc=0.8482 | Rec=0.9176 | F1=0.8478 ← using this
 
   ╔══ Round 6/8 Results ══
-  ║ Accuracy:  0.8780
-  ║ Precision: 0.8698
-  ║ Recall:    0.8647
-  ║ F1:        0.8673
-  ║ AUC:       0.9448
+  ║ Accuracy:  0.8482
+  ║ Precision: 0.7879
+  ║ Recall:    0.9176
+  ║ F1:        0.8478
+  ║ AUC:       0.9316
   ╟──
-  ║ Round time: 1m 3s | Total elapsed: 6m 35s | ETA: 2m 11s
+  ║ Round time: 1m 4s | Total elapsed: 6m 36s | ETA: 2m 12s
   ╚══
 
 ──────────────────────────────────────────────────
@@ -320,13 +318,13 @@ PS C:\Users\sayan\OneDrive\Desktop\federated-deepfake> python .\main_federated.p
 
     ┌─ Client 0 (1/2) | 843 samples | 3 generators
       [Client 0] LR this round: 0.000023
-      [Client 0] Epoch 1/1 | Loss: 0.7261 | Time: 21.8s | ETA: 0.0s
+      [Client 0] Epoch 1/1 | Loss: 0.4131 | Time: 21.8s | ETA: 0.0s
       [Client 0] Local training done in 21.8s
     └─ Client 0 complete
 
     ┌─ Client 1 (2/2) | 731 samples | 2 generators
       [Client 1] LR this round: 0.000023
-      [Client 1] Epoch 1/1 | Loss: 0.3273 | Time: 19.5s | ETA: 0.0s
+      [Client 1] Epoch 1/1 | Loss: 0.1967 | Time: 19.5s | ETA: 0.0s
       [Client 1] Local training done in 19.5s
     └─ Client 1 complete
 
@@ -334,21 +332,21 @@ PS C:\Users\sayan\OneDrive\Desktop\federated-deepfake> python .\main_federated.p
   Aggregation done in 0.03s
 
   Evaluating global model...
-    [Eval] Batch 12/24 (50%) | Elapsed: 20.8s
-    [Eval] Batch 24/24 (100%) | Elapsed: 22.1s
-    [Eval] Complete (369 samples in 23.0s)
-    [Eval] Threshold: 0.013 (val-calibrated; default 0.5)  AUC is threshold-free
-    [Eval] At t=0.5:   Acc=0.6341 | Rec=0.2059 | F1=0.3415
-    [Eval] At t=0.013: Acc=0.8401 | Rec=0.9118 | F1=0.8401 ← using this
+    [Eval] Batch 12/24 (50%) | Elapsed: 20.7s
+    [Eval] Batch 24/24 (100%) | Elapsed: 21.9s
+    [Eval] Complete (369 samples in 22.9s)
+    [Eval] Threshold: 0.126 (val-calibrated; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.6450 | Rec=0.2412 | F1=0.3850
+    [Eval] At t=0.126: Acc=0.8266 | Rec=0.7941 | F1=0.8084 ← using this
 
   ╔══ Round 7/8 Results ══
-  ║ Accuracy:  0.8401
-  ║ Precision: 0.7789
-  ║ Recall:    0.9118
-  ║ F1:        0.8401
-  ║ AUC:       0.9272
+  ║ Accuracy:  0.8266
+  ║ Precision: 0.8232
+  ║ Recall:    0.7941
+  ║ F1:        0.8084
+  ║ AUC:       0.9008
   ╟──
-  ║ Round time: 1m 4s | Total elapsed: 7m 39s | ETA: 1m 5s
+  ║ Round time: 1m 4s | Total elapsed: 7m 41s | ETA: 1m 5s
   ╚══
 
 ──────────────────────────────────────────────────
@@ -358,41 +356,41 @@ PS C:\Users\sayan\OneDrive\Desktop\federated-deepfake> python .\main_federated.p
 
     ┌─ Client 0 (1/2) | 843 samples | 3 generators
       [Client 0] LR this round: 0.000013
-      [Client 0] Epoch 1/1 | Loss: 0.5982 | Time: 21.8s | ETA: 0.0s
-      [Client 0] Local training done in 21.9s
+      [Client 0] Epoch 1/1 | Loss: 0.3564 | Time: 21.7s | ETA: 0.0s
+      [Client 0] Local training done in 21.8s
     └─ Client 0 complete
 
     ┌─ Client 1 (2/2) | 731 samples | 2 generators
       [Client 1] LR this round: 0.000013
-      [Client 1] Epoch 1/1 | Loss: 0.2820 | Time: 19.4s | ETA: 0.0s
-      [Client 1] Local training done in 19.4s
+      [Client 1] Epoch 1/1 | Loss: 0.1776 | Time: 19.1s | ETA: 0.0s
+      [Client 1] Local training done in 19.2s
     └─ Client 1 complete
 
   Aggregating 2 client updates...
-  Aggregation done in 0.04s
+  Aggregation done in 0.03s
 
   Evaluating global model...
-    [Eval] Batch 12/24 (50%) | Elapsed: 20.4s
-    [Eval] Batch 24/24 (100%) | Elapsed: 21.6s
-    [Eval] Complete (369 samples in 22.5s)
-    [Eval] Threshold: 0.005 (val-calibrated; default 0.5)  AUC is threshold-free
-    [Eval] At t=0.5:   Acc=0.5908 | Rec=0.1118 | F1=0.2011
-    [Eval] At t=0.005: Acc=0.8266 | Rec=0.9529 | F1=0.8351 ← using this
+    [Eval] Batch 12/24 (50%) | Elapsed: 20.9s
+    [Eval] Batch 24/24 (100%) | Elapsed: 22.1s
+    [Eval] Complete (369 samples in 23.1s)
+    [Eval] Threshold: 0.050 (val-calibrated; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.5772 | Rec=0.0882 | F1=0.1613
+    [Eval] At t=0.050: Acc=0.8428 | Rec=0.9235 | F1=0.8441 ← using this
 
   ╔══ Round 8/8 Results ══
-  ║ Accuracy:  0.8266
-  ║ Precision: 0.7431
-  ║ Recall:    0.9529
-  ║ F1:        0.8351
-  ║ AUC:       0.9269
+  ║ Accuracy:  0.8428
+  ║ Precision: 0.7772
+  ║ Recall:    0.9235
+  ║ F1:        0.8441
+  ║ AUC:       0.9292
   ╟──
-  ║ Round time: 1m 3s | Total elapsed: 8m 43s | ETA: 0.0s
+  ║ Round time: 1m 4s | Total elapsed: 8m 45s | ETA: 0.0s
   ╚══
 
 ============================================================
   FEDERATED TRAINING COMPLETE
-  Total time:  8m 43s
-  Best AUC:    0.9674
+  Total time:  8m 45s
+  Best AUC:    0.9810
   Total rounds: 8
   Avg round:   1m 5s
 ============================================================
@@ -401,31 +399,31 @@ PS C:\Users\sayan\OneDrive\Desktop\federated-deepfake> python .\main_federated.p
   Loading best federated checkpoint for final test evaluation...
 
   Final evaluation on validation split...
-    [Eval] Batch 12/24 (50%) | Elapsed: 20.5s
-    [Eval] Batch 24/24 (100%) | Elapsed: 21.7s
-    [Eval] Complete (369 samples in 22.6s)
-    [Eval] Threshold: 0.311 (val-calibrated; default 0.5)  AUC is threshold-free
-    [Eval] At t=0.5:   Acc=0.8808 | Rec=0.8294 | F1=0.8650
-    [Eval] At t=0.311: Acc=0.8943 | Rec=0.9529 | F1=0.8926 ← using this
-  [Federated Val] | Acc: 0.8943 | Prec: 0.8394 | Rec: 0.9529 | F1: 0.8926 | AUC: 0.9674
+    [Eval] Batch 12/24 (50%) | Elapsed: 21.2s
+    [Eval] Batch 24/24 (100%) | Elapsed: 22.4s
+    [Eval] Complete (369 samples in 23.3s)
+    [Eval] Threshold: 0.431 (val-calibrated; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.8916 | Rec=0.7941 | F1=0.8710
+    [Eval] At t=0.431: Acc=0.9295 | Rec=0.9176 | F1=0.9231 ← using this
+  [Federated Val] | Acc: 0.9295 | Prec: 0.9286 | Rec: 0.9176 | F1: 0.9231 | AUC: 0.9810
 
   Final test evaluation using validation threshold (with TTA)...
-    [Eval] Batch 12/24 (50%) | Elapsed: 27.0s
-    [Eval] Batch 24/24 (100%) | Elapsed: 33.3s
-    [Eval] Complete (370 samples in 34.5s)
-    [Eval] Threshold: 0.311 (provided; default 0.5)  AUC is threshold-free
-    [Eval] At t=0.5:   Acc=0.8459 | Rec=0.8304 | F1=0.8328
-    [Eval] At t=0.311: Acc=0.7459 | Rec=0.9415 | F1=0.7740 ← using this
-  [Federated Test] | Acc: 0.7459 | Prec: 0.6571 | Rec: 0.9415 | F1: 0.7740 | AUC: 0.9068
+    [Eval] Batch 12/24 (50%) | Elapsed: 25.6s
+    [Eval] Batch 24/24 (100%) | Elapsed: 31.7s
+    [Eval] Complete (370 samples in 32.8s)
+    [Eval] Threshold: 0.431 (provided; default 0.5)  AUC is threshold-free
+    [Eval] At t=0.5:   Acc=0.7811 | Rec=0.5614 | F1=0.7033
+    [Eval] At t=0.431: Acc=0.8027 | Rec=0.6784 | F1=0.7607 ← using this
+  [Federated Test] | Acc: 0.8027 | Prec: 0.8657 | Rec: 0.6784 | F1: 0.7607 | AUC: 0.9090
 
 ============================================================
   FEDERATED PIPELINE COMPLETE
-  Phase 1 (Teacher):    7m 57s
-  Phase 2 (Federated):  8m 43s
-  Total pipeline time:  17m 41s
+  Phase 1 (Teacher):    7m 59s
+  Phase 2 (Federated):  8m 45s
+  Total pipeline time:  17m 45s
 
-  Best round: 4/8
-  Best Val AUC: 0.9674
-  Best F1:    0.8926
-  Best Acc:   0.8943
-  Test AUC:   0.9068
+  Best round: 3/8
+  Best Val AUC: 0.9810
+  Best F1:    0.9231
+  Best Acc:   0.9295
+  Test AUC:   0.9090

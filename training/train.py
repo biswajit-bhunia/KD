@@ -97,7 +97,7 @@ def train_teacher(
     epochs=5,
     health_check_every=3,
 ):
-    cls_loss = ClassificationLoss()
+    cls_loss = ClassificationLoss(label_smoothing=0.1)
 
     scaler = torch.amp.GradScaler(device.type, enabled=device.type == "cuda")
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-5)
@@ -179,7 +179,7 @@ def train_student(
       - Embedding KD (MSE)
       - Logits KD (KL-div)
     """
-    cls_loss = ClassificationLoss()
+    cls_loss = ClassificationLoss(label_smoothing=0.1)
     multi_kd = MultiLevelKD(temperature=temperature_kd)
 
     # Freeze teacher
