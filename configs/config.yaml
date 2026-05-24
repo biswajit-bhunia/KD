@@ -10,15 +10,14 @@ student_epochs: 10
 
 # Loss weights
 lambda_kd: 0.3
-lambda_feat_kd: 0.5            # multi-level feature KD weight (semantic + forensic + embedding)
+lambda_feat_kd: 0.1            # multi-level feature KD weight (semantic + forensic + embedding)
 
 # Temperatures
 temperature_kd: 2.0
 
-# ----- Federated Learning -----
-num_clients: 3            # number of federated clients
-num_rounds: 12            # number of federated rounds (was 5 — model was still improving)
-local_epochs: 2           # local training epochs per client per round (was 2)
+num_clients: 2            # number of federated clients
+num_rounds: 8            # number of federated rounds (was 5 — model was still improving)
+local_epochs: 1           # local training epochs per client per round (was 2)
 clients_per_round: null   # null = all clients participate each round
-fedprox_mu: 0.05          # proximal term weight (was 0.01 — too weak to prevent client drift)
+fedprox_mu: 0.2          # proximal term weight (was 0.01 — too weak to prevent client drift)
 iid_partition: false      # false = non-IID (split by generator, realistic)

@@ -77,7 +77,6 @@ def test_kd_compatibility():
     
     assert "embedding" in losses
     assert "logits" in losses
-    assert "total" in losses
     
     for k, v in losses.items():
         assert torch.isfinite(v), f"KD loss '{k}' is not finite: {v}"

@@ -4,9 +4,6 @@ from typing import List, Tuple
 
 import torch
 
-
-
-
 def fedavg_aggregate(
     global_state_dict: OrderedDict,
     client_updates: List[Tuple[OrderedDict, int]]
@@ -20,11 +17,9 @@ def fedavg_aggregate(
     for key in global_state_dict.keys():
         global_device = global_state_dict[key].device
 
-        # BatchNorm step counter: sum across clients, don't average
+        # BatchNorm step counter: inherit from global state since it's frozen during local training
         if key.endswith('num_batches_tracked'):
-            aggregated[key] = sum(
-                client_state[key] for client_state, _ in client_updates
-            ).to(global_device)
+            aggregated[key] = global_state_dict[key].clone().to(global_device)
             continue
 
         # Accumulate on CPU (client states are already there after isolation)

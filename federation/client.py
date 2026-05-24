@@ -1,15 +1,3 @@
-"""
-Federated Client for dual-domain deepfake detection.
-
-Each client holds a local data partition and trains a local copy of the
-student model using multi-level KD from a shared frozen teacher.
-
-Changes from previous version:
-  - Removed GradientExtractor — student now uses (x_rgb, x_forensic)
-  - Added multi-level KD (embedding, logits)
-  - Removed GRL code and adversarial training
-"""
-
 import copy
 import math
 import time
@@ -31,9 +19,7 @@ from utils.debug_checks import (
     check_teacher_frozen, DEBUG as _DEBUG,
 )
 
-
 def _fmt_time(seconds):
-    """Format seconds into human-readable string."""
     if seconds < 60:
         return f"{seconds:.1f}s"
     elif seconds < 3600:
@@ -45,12 +31,18 @@ def _fmt_time(seconds):
         return f"{int(h)}h {int(m)}m {int(s)}s"
 
 
-class FederatedClient:
+def _get_round_lr(base_lr: float, round_idx: int, total_rounds: int) -> float:
     """
-    A federated client that holds local data and trains a local copy
-    of the student model using multi-level KD from a frozen teacher.
+    Cosine decay of LR across federated rounds.
+    Round 0  → base_lr
+    Round N-1 → base_lr * 0.1  (never goes to zero)
     """
+    min_lr = base_lr * 0.1
+    cosine_decay = 0.5 * (1 + math.cos(math.pi * round_idx / total_rounds))
+    return min_lr + (base_lr - min_lr) * cosine_decay
 
+
+class FederatedClient:
     def __init__(
         self,
         client_id: int,
@@ -89,9 +81,6 @@ class FederatedClient:
         self.num_samples = len(samples)
         self.local_generators = list(set(s[2] for s in samples if s[1] == 1))
         self.num_generators = len(self.local_generators)
-        
-        # Preserve optimizer state across rounds
-        self.optimizer_state = None
 
     def train_local(
         self,
@@ -104,14 +93,12 @@ class FederatedClient:
         mu: float = 0.001,
         temperature_kd: float = 4.0,
         round_idx: int = 0,
+        total_rounds: int = 12,
     ) -> OrderedDict:
-        """
-        Run local training on this client's data.
-
-        Returns:
-            trained local student state_dict
-        """
         client_start = time.time()
+
+        # Compute decayed LR for this round
+        effective_lr = _get_round_lr(lr, round_idx, total_rounds)
 
         student = copy.deepcopy(student).to(self.device)
         student.train()
@@ -123,26 +110,21 @@ class FederatedClient:
             if isinstance(module, nn.BatchNorm2d):
                 module.eval()
 
-
-
         # Freeze teacher
         self.teacher.eval()
         for p in self.teacher.parameters():
             p.requires_grad = False
 
         # Loss functions
-        cls_loss = ClassificationLoss()
+        cls_loss = ClassificationLoss(label_smoothing=0.05)
         multi_kd = MultiLevelKD(temperature=temperature_kd)
         fedprox_loss = FedProxLoss(mu=mu)
 
-        optimizer = torch.optim.Adam(student.parameters(), lr=lr)
-        
-        # Restore optimizer momentum/state from previous rounds
-        if self.optimizer_state is not None:
-            optimizer.load_state_dict(self.optimizer_state)
-            # Ensure LR matches current round's configuration
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = lr
+        # Fresh optimizer every round — never carry state across rounds.
+        # Adam's moment tensors (exp_avg, exp_avg_sq) are computed relative
+        # to a specific weight trajectory. After FedAvg those weights are
+        # replaced by a global average, making stored moments invalid.
+        optimizer = torch.optim.Adam(student.parameters(), lr=effective_lr)
 
         scaler = torch.amp.GradScaler(self.device.type, enabled=self.device.type == "cuda")
 
@@ -153,6 +135,8 @@ class FederatedClient:
         }
 
         num_batches = len(self.dataloader)
+
+        print(f"      [Client {self.client_id}] LR this round: {effective_lr:.6f}")
 
         for epoch in range(local_epochs):
             epoch_start = time.time()
@@ -186,7 +170,6 @@ class FederatedClient:
                 if mu > 0:
                     loss += fedprox_loss(student, global_params)
 
-                # --- Debug checks (gated, zero overhead in production) ---
                 if _DEBUG and batch_idx == 0 and epoch == 0:
                     check_forensic_stack(x_for, x_rgb.shape[0], x_rgb.shape[2], x_rgb.shape[3])
                     check_teacher_frozen(self.teacher)
@@ -215,13 +198,5 @@ class FederatedClient:
 
         client_time = time.time() - client_start
         print(f"      [Client {self.client_id}] Local training done in {_fmt_time(client_time)}")
-
-        # Save optimizer state to CPU to prevent GPU OOM across clients
-        opt_state = optimizer.state_dict()
-        for state_dict in opt_state['state'].values():
-            for k, v in state_dict.items():
-                if isinstance(v, torch.Tensor):
-                    state_dict[k] = v.cpu()
-        self.optimizer_state = opt_state
 
         return student.state_dict()

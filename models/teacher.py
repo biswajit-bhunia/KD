@@ -18,10 +18,7 @@ from torchvision.models import ResNet18_Weights, ResNet50_Weights
 
 from models.fusion import GatedFusion
 
-
-# ---------------------------
 # Semantic Teacher (ResNet-50)
-# ---------------------------
 class SemanticTeacher(nn.Module):
     """
     ResNet-50 backbone for RGB images.
@@ -72,10 +69,7 @@ class SemanticTeacher(nn.Module):
         x = self.proj(x)             # (B, out_dim)
         return x
 
-
-# ---------------------------
 # Forensic Teacher (ResNet-18)
-# ---------------------------
 class ForensicTeacher(nn.Module):
     """
     ResNet-18 backbone modified for 6-channel forensic input.
@@ -135,10 +129,7 @@ class ForensicTeacher(nn.Module):
         x = self.proj(x)             # (B, out_dim)
         return x
 
-
-# ---------------------------
 # Teacher Model (Dual-Domain)
-# ---------------------------
 class TeacherModel(nn.Module):
     """
     Dual-domain teacher combining semantic (ResNet-50) and forensic (ResNet-18)

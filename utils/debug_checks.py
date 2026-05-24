@@ -17,7 +17,6 @@ from typing import Dict, Optional
 # Master switch — set to True for debug runs, False for production
 DEBUG = False
 
-
 def check_loss(loss: torch.Tensor, name: str = "loss") -> None:
     """Assert loss is finite, scalar, and has gradients attached."""
     if not DEBUG:
@@ -25,7 +24,6 @@ def check_loss(loss: torch.Tensor, name: str = "loss") -> None:
     assert loss.dim() == 0, f"[DEBUG] {name} is not scalar: shape={loss.shape}"
     assert torch.isfinite(loss), f"[DEBUG] {name} is not finite: {loss.item()}"
     assert loss.requires_grad, f"[DEBUG] {name} has no gradient graph (detached?)"
-
 
 def check_tensor(t: torch.Tensor, name: str, expected_shape: Optional[tuple] = None) -> None:
     """Assert tensor is finite and optionally matches expected shape."""
@@ -36,7 +34,6 @@ def check_tensor(t: torch.Tensor, name: str, expected_shape: Optional[tuple] = N
         assert t.shape == expected_shape, (
             f"[DEBUG] {name} shape mismatch: expected {expected_shape}, got {t.shape}"
         )
-
 
 def check_kd_decomposition(kd_losses: Dict[str, torch.Tensor], loss_kd: torch.Tensor,
                             loss_feat: torch.Tensor) -> None:
@@ -56,7 +53,6 @@ def check_kd_decomposition(kd_losses: Dict[str, torch.Tensor], loss_kd: torch.Te
     )
     for k, v in kd_losses.items():
         assert torch.isfinite(v), f"[DEBUG] KD loss '{k}' is not finite: {v.item()}"
-
 
 def check_gradients(model: nn.Module, tag: str = "model") -> Dict[str, float]:
     """Check gradient health: return stats and warn on issues."""
@@ -80,7 +76,6 @@ def check_gradients(model: nn.Module, tag: str = "model") -> Dict[str, float]:
         print(f"  [DEBUG] {tag}: {missing}/{stats['total_params']} parameters have NO gradient")
     return stats
 
-
 def check_model_output(out: dict, embed_dim: int, batch_size: int, num_classes: int = 2,
                         tag: str = "model") -> None:
     """Validate the standard model output dictionary."""
@@ -93,7 +88,6 @@ def check_model_output(out: dict, embed_dim: int, batch_size: int, num_classes: 
     check_tensor(out["embedding"], f"{tag}.embedding", (batch_size, embed_dim))
     check_tensor(out["logits"], f"{tag}.logits", (batch_size, num_classes))
 
-
 def check_forensic_stack(x_for: torch.Tensor, batch_size: int, H: int, W: int) -> None:
     """Validate forensic stack shape and finiteness."""
     if not DEBUG:
@@ -104,7 +98,6 @@ def check_forensic_stack(x_for: torch.Tensor, batch_size: int, H: int, W: int) -
         f"(was it computed inside autocast?)"
     )
 
-
 def check_teacher_frozen(teacher: nn.Module) -> None:
     """Assert teacher parameters are frozen and model is in eval mode."""
     if not DEBUG:
@@ -112,7 +105,6 @@ def check_teacher_frozen(teacher: nn.Module) -> None:
     assert not teacher.training, "[DEBUG] Teacher is not in eval mode"
     for name, p in teacher.named_parameters():
         assert not p.requires_grad, f"[DEBUG] Teacher parameter '{name}' is not frozen"
-
 
 def print_loss_decomposition(ce: float, kd: float, feat: float,
                               total: float, lambda_kd: float, lambda_feat: float) -> None:

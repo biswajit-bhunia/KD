@@ -1,13 +1,9 @@
 import torch
 import torch.nn.functional as F
 
-
-# ---------------------------
 # Kernel cache (Issue #4)
 # Avoids re-creating small tensors every forward pass
-# ---------------------------
 _kernel_cache = {}
-
 
 def _get_srm_kernels(device):
     key = ('srm', device)
@@ -26,20 +22,13 @@ def _get_srm_kernels(device):
         _kernel_cache[key] = kernels
     return _kernel_cache[key]
 
-
-
-# ---------------------------
 # Helper: ensure BCHW
-# ---------------------------
 def _to_bchw(x):
     if x.dim() == 3:
         x = x.unsqueeze(0)
     return x
 
-
-# ---------------------------
 # SRM (High-pass residual)
-# ---------------------------
 def compute_srm(image):
     """
     Simple SRM-like high-pass filters.
@@ -57,10 +46,7 @@ def compute_srm(image):
 
     return out.squeeze(0) if image.dim() == 3 else out
 
-
-# ---------------------------
 # FFT magnitude
-# ---------------------------
 def compute_fft(image):
     """
     FFT magnitude spectrum — computed per-channel (R, G, B independently)
@@ -84,10 +70,7 @@ def compute_fft(image):
 
     return magnitude.squeeze(0) if image.dim() == 3 else magnitude
 
-
-# ---------------------------
 # Final stack
-# ---------------------------
 def build_forensic_stack(image):
     """
     Input:  (3,H,W) or (B,3,H,W)

@@ -1,7 +1,6 @@
 import torch
 import os
 
-
 def save_checkpoint(model, optimizer, epoch, path):
     dir_name = os.path.dirname(path)
     if dir_name:  # os.path.dirname returns '' for bare filenames — makedirs("") raises FileNotFoundError
@@ -12,7 +11,6 @@ def save_checkpoint(model, optimizer, epoch, path):
         "model_state_dict": model.state_dict(),
         "optimizer_state_dict": optimizer.state_dict()
     }, path)
-
 
 def load_checkpoint(model, optimizer, path, device="cpu"):
     # Bug B: weights_only=True avoids arbitrary pickle deserialization (security

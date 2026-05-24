@@ -12,7 +12,6 @@ from federation.client import FederatedClient
 from federation.aggregation import fedavg_aggregate
 from training.validate import evaluate
 
-
 def _fmt_time(seconds):
     """Format seconds into human-readable string."""
     if seconds < 60:
@@ -24,7 +23,6 @@ def _fmt_time(seconds):
         h, rem = divmod(seconds, 3600)
         m, s = divmod(rem, 60)
         return f"{int(h)}h {int(m)}m {int(s)}s"
-
 
 class FederatedServer:
     """
@@ -78,13 +76,11 @@ class FederatedServer:
             print(f"  ROUND {round_idx + 1}/{num_rounds}")
             print(f"{'─'*50}")
 
-            # 1. Select clients
             selected = self._select_clients()
             client_ids = [c.client_id for c in selected]
             total_samples = sum(c.num_samples for c in selected)
             print(f"  Selected clients: {client_ids} ({total_samples} total samples)")
 
-            # 2. Local training
             # Safely clone global state to CPU to free up GPU memory
             global_state = {k: v.cpu().clone() for k, v in self.global_student.state_dict().items()}
             client_updates = []
@@ -105,6 +101,7 @@ class FederatedServer:
                     mu=mu,
                     temperature_kd=temperature_kd,
                     round_idx=round_idx,
+                    total_rounds=num_rounds,
                 )
 
                 # Move local state to CPU before appending to prevent GPU OOM
@@ -116,19 +113,17 @@ class FederatedServer:
                 del local_state
                 torch.cuda.empty_cache()
 
-            # 3. Aggregate
             agg_start = time.time()
             print(f"\n  Aggregating {len(client_updates)} client updates...")
             aggregated_state = fedavg_aggregate(global_state, client_updates)
-            self.global_student.load_state_dict(aggregated_state)
+            self.global_student.load_state_dict(aggregated_state, strict=True)
             agg_time = time.time() - agg_start
             print(f"  Aggregation done in {agg_time:.2f}s")
 
-            # 4. Evaluate
             print(f"\n  Evaluating global model...")
             metrics = evaluate(
                 self.global_student, self.val_loader,
-                self.device
+                self.device, calibrate_threshold=True
             )
 
             round_time = time.time() - round_start
@@ -151,7 +146,6 @@ class FederatedServer:
 
             self.round_history.append(metrics)
 
-            # 5. Save best
             if metrics["auc"] > self.best_auc:
                 self.best_auc = metrics["auc"]
                 torch.save(self.global_student.state_dict(), save_path)

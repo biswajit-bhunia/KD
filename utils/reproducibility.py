@@ -3,7 +3,6 @@ import random
 import numpy as np
 import torch
 
-
 def seed_everything(seed: int = 42, deterministic: bool = False):
     """Seed Python, NumPy, PyTorch, CUDA, and DataLoader workers."""
     random.seed(seed)
@@ -18,12 +17,10 @@ def seed_everything(seed: int = 42, deterministic: bool = False):
     else:
         torch.backends.cudnn.benchmark = True
 
-
 def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
-
 
 def make_generator(seed: int = 42):
     generator = torch.Generator()

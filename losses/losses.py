@@ -2,13 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
-# ---------------------------
-# 1. Focal Loss (with label smoothing)
-# ---------------------------
-
-
-
 class ClassificationLoss(nn.Module):
     def __init__(self, label_smoothing=0.0):
         super().__init__()
@@ -17,6 +10,4 @@ class ClassificationLoss(nn.Module):
  
     def forward(self, logits, targets):
         return self.loss(logits, targets)
-
-
 

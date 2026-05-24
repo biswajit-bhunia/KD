@@ -7,7 +7,6 @@ from sklearn.metrics import (
 )
 from features.forensic import build_forensic_stack
 
-
 def find_optimal_threshold(labels, probs):
     """
     Find the threshold that maximises F1 using the precision-recall curve.
@@ -34,6 +33,7 @@ def find_optimal_threshold(labels, probs):
     best_idx = int(np.argmax(f1_arr))
     return float(thresholds[best_idx]), float(f1_arr[best_idx])
 
+import torchvision.transforms.functional as TF
 
 def evaluate(
     model,
@@ -41,6 +41,7 @@ def evaluate(
     device,
     threshold=None,
     calibrate_threshold=False,
+    use_tta=False,
 ):
     """
     Evaluate a model (teacher or student) on a dataloader.
@@ -57,6 +58,7 @@ def evaluate(
         device:      torch.device
         threshold:   optional fixed threshold; if None, calibrated from data
         calibrate_threshold: whether to search for optimal threshold
+        use_tta:     whether to use Test-Time Augmentation (5-crop)
     """
     model.eval()
 
@@ -72,14 +74,30 @@ def evaluate(
             x      = batch["image"].to(device)
             labels = batch["label"].to(device)
 
-            # Build forensic stack from RGB
-            x_for = build_forensic_stack(x)
+            if not use_tta:
+                # Build forensic stack from RGB
+                x_for = build_forensic_stack(x)
 
-            # Unified forward: both teacher and student use (x_rgb, x_forensic)
-            out = model(x, x_for)
-
-            logits = out["logits"]
-            probs  = torch.softmax(logits, dim=1)[:, 1]
+                # Unified forward: both teacher and student use (x_rgb, x_forensic)
+                out = model(x, x_for)
+                probs = torch.softmax(out["logits"], dim=1)[:, 1]
+            else:
+                aug_probs = []
+                augs = [
+                    lambda img: img,                                         # Original
+                    lambda img: TF.hflip(img),                               # Horizontal flip
+                    lambda img: TF.gaussian_blur(img, kernel_size=[3, 3]),   # Mild blur
+                    lambda img: TF.adjust_brightness(img, 1.1),              # Brighter
+                    lambda img: TF.adjust_brightness(img, 0.9),              # Darker
+                ]
+                for aug_fn in augs:
+                    x_aug = aug_fn(x)
+                    x_for_aug = build_forensic_stack(x_aug)
+                    out_aug = model(x_aug, x_for_aug)
+                    aug_probs.append(torch.softmax(out_aug["logits"], dim=1)[:, 1])
+                
+                # Average probabilities across all augmentations
+                probs = torch.stack(aug_probs, dim=0).mean(dim=0)
 
             all_labels.extend(labels.detach().cpu().numpy())
             all_probs.extend(probs.detach().cpu().numpy())

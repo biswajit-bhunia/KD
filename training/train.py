@@ -22,24 +22,18 @@ from utils.debug_checks import (
 
 from features.forensic import build_forensic_stack
 
-
 from models.kd import MultiLevelKD
 
 from losses.losses import (
     ClassificationLoss
 )
 
-
-# ---------------------------
-# Utils
-# ---------------------------
 def move_to_device(batch, device):
     return {
         "image":  batch["image"].to(device),
         "label":  batch["label"].to(device),
         "gen_id": batch["gen_id"].to(device)
     }
-
 
 def _fmt_time(seconds):
     """Format seconds into human-readable string."""
@@ -53,16 +47,14 @@ def _fmt_time(seconds):
         m, s = divmod(rem, 60)
         return f"{int(h)}h {int(m)}m {int(s)}s"
 
-
 def _quick_validate(model, val_loader, device):
     """
     Run a fast validation pass and return AUC.
     Imports evaluate lazily to avoid circular imports.
     """
     from training.validate import evaluate
-    metrics = evaluate(model, val_loader, device)
+    metrics = evaluate(model, val_loader, device, calibrate_threshold=True)
     return metrics
-
 
 def _health_check(tag, epoch, lr, loss_history, ce, kd, supcon, base_lr):
     """
@@ -96,10 +88,7 @@ def _health_check(tag, epoch, lr, loss_history, ce, kd, supcon, base_lr):
     else:
         print(f"  ✓ {tag} Health check passed (Epoch {epoch}) — LR, loss, and components look normal.\n")
 
-
-# ---------------------------
 # STAGE 1: Train Teacher
-# ---------------------------
 def train_teacher(
     model,
     dataloader,
@@ -165,10 +154,7 @@ def train_teacher(
     total_time = time.time() - stage_start
     print(f"  [Teacher] Training complete in {_fmt_time(total_time)}")
 
-
-# ---------------------------
 # STAGE 2: Train Student (Multi-Level KD)
-# ---------------------------
 def train_student(
     student,
     teacher,
@@ -216,7 +202,6 @@ def train_student(
     stage_start = time.time()
     num_batches = len(dataloader)
 
-    # Early stopping state
     best_val_auc = -1.0          # -1 sentinel so first check is always "new best"
     best_model_state = None
     checks_without_improvement = 0  # counts validation rounds, not epochs

@@ -17,28 +17,22 @@ from torch.utils.data import DataLoader, WeightedRandomSampler
 from collections import Counter
 from sklearn.model_selection import train_test_split
 
-# Data
 from data.dataset import DeepfakeDataset
 from data.loader import load_samples
 from data.split import find_cross_split_duplicates, find_cross_split_near_duplicates, split_samples
 
-# Models
 from models.teacher import TeacherModel
 from models.student import StudentModel
 
-# Training
 from training.train import (
     train_teacher,
     train_student
 )
 
-# Evaluation
 from training.validate import evaluate
 
-# Utils
 from utils.checkpoint import save_checkpoint
 from utils.reproducibility import make_generator, seed_everything, seed_worker
-
 
 def _fmt_time(seconds):
     """Format seconds into human-readable string."""
@@ -52,7 +46,6 @@ def _fmt_time(seconds):
         m, s = divmod(rem, 60)
         return f"{int(h)}h {int(m)}m {int(s)}s"
 
-
 def print_metrics(tag, metrics):
     print(
         f"{tag} | "
@@ -63,13 +56,9 @@ def print_metrics(tag, metrics):
         f"AUC: {metrics['auc']:.4f}"
     )
 
-
 def main():
     pipeline_start = time.time()
 
-    # ---------------------------
-    # 1. Load config
-    # ---------------------------
     with open("configs/config.yaml", "r") as f:
         config = yaml.safe_load(f)
 
@@ -93,9 +82,6 @@ def main():
     print(f"  λ_kd: {lambda_kd} | λ_feat: {lambda_feat_kd}")
     print(f"{'='*60}")
 
-    # ---------------------------
-    # 2. Load & Split Dataset
-    # ---------------------------
     print("\n  Loading dataset...")
     load_start = time.time()
     samples = load_samples("data/")
@@ -165,9 +151,6 @@ def main():
     val_dataset   = DeepfakeDataset(val_samples,   augment=False)
     test_dataset  = DeepfakeDataset(test_samples,  augment=False)
 
-    # ---------------------------
-    # 3. Dataloaders
-    # ---------------------------
     train_labels = [s[1] for s in train_samples]
     counts  = Counter(train_labels)
     weights = [1.0 / counts[l] for l in train_labels]
@@ -208,9 +191,6 @@ def main():
 
     print(f"  Train batches: {len(teacher_train_loader)} | Val batches: {len(val_loader)} | Test batches: {len(test_loader)}")
 
-    # ---------------------------
-    # 4. Initialize Models
-    # ---------------------------
     print("\n  Initializing models...")
     init_start = time.time()
     teacher = TeacherModel().to(device)
@@ -221,15 +201,9 @@ def main():
     print(f"  Teacher: {teacher_params:,} params | Student: {student_params:,} params")
     print(f"  Models initialized in {time.time() - init_start:.1f}s")
 
-    # ---------------------------
-    # 5. Optimizers
-    # ---------------------------
     teacher_opt = torch.optim.Adam(teacher.parameters(), lr=lr)
     student_opt = torch.optim.Adam(student.parameters(), lr=lr)
 
-    # ---------------------------
-    # 6. Stage 1: Train Teacher
-    # ---------------------------
     print(f"\n{'─'*60}")
     print(f"  STAGE 1: Training Teacher ({teacher_epochs} epochs)")
     print(f"{'─'*60}")
@@ -244,7 +218,7 @@ def main():
     )
 
     print("\n  Evaluating teacher...")
-    metrics = evaluate(teacher, val_loader, device)
+    metrics = evaluate(teacher, val_loader, device, calibrate_threshold=True)
     print_metrics("  [Teacher]", metrics)
 
     save_checkpoint(teacher, teacher_opt, epoch=teacher_epochs, path="checkpoints/teacher_stage1.pth")
@@ -253,12 +227,8 @@ def main():
     print(f"  → Saved teacher checkpoint (AUC={best_teacher_auc:.4f})")
     print(f"  → Stage 1 complete in {_fmt_time(stage1_time)}")
 
-    # Free GPU memory from Stage 1
     torch.cuda.empty_cache()
 
-    # ---------------------------
-    # 7. Stage 2: Train Student (Multi-Level KD)
-    # ---------------------------
     print(f"\n{'─'*60}")
     print(f"  STAGE 2: Training Student with Multi-Level KD ({student_epochs} epochs)")
     print(f"{'─'*60}")
@@ -280,7 +250,7 @@ def main():
     )
 
     print("\n  Evaluating student...")
-    metrics = evaluate(student, val_loader, device)
+    metrics = evaluate(student, val_loader, device, calibrate_threshold=True)
     print_metrics("  [Student KD]", metrics)
 
     save_checkpoint(student, student_opt, epoch=student_epochs, path="checkpoints/student_stage2.pth")
@@ -289,14 +259,10 @@ def main():
     print(f"  → Saved student checkpoint (AUC={best_student_auc:.4f})")
     print(f"  → Stage 2 complete in {_fmt_time(stage2_time)}")
 
-    # Free GPU memory from Stage 2
     torch.cuda.empty_cache()
 
-    # ---------------------------
-    # 8. Final Evaluation
-    # ---------------------------
     print("\n  Final evaluation on validation split...")
-    metrics = evaluate(student, val_loader, device)
+    metrics = evaluate(student, val_loader, device, calibrate_threshold=True)
     print_metrics("  [Val]", metrics)
 
     print("\n  Final test evaluation using validation threshold...")
@@ -312,9 +278,6 @@ def main():
     save_checkpoint(student, student_opt, epoch=teacher_epochs + student_epochs,
                     path="checkpoints/student_final.pth")
 
-    # ---------------------------
-    # Final Summary
-    # ---------------------------
     total_time = time.time() - pipeline_start
     print(f"\n{'='*60}")
     print(f"  PIPELINE COMPLETE")
@@ -327,7 +290,5 @@ def main():
     print(f"  Final Student Test AUC:{test_metrics['auc']:.4f}")
     print(f"{'='*60}\n")
 
-
-# ---------------------------
 if __name__ == "__main__":
     main()

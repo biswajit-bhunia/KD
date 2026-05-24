@@ -28,10 +28,7 @@ from torchvision.models import MobileNet_V2_Weights
 
 from models.fusion import GatedFusion
 
-
-# ---------------------------
 # Semantic Student (MobileNetV2)
-# ---------------------------
 class SemanticStudentBranch(nn.Module):
     """
     MobileNetV2 backbone for RGB images.
@@ -81,10 +78,7 @@ class SemanticStudentBranch(nn.Module):
         x = self.proj(x)             # (B, out_dim)
         return x
 
-
-# ---------------------------
 # Forensic Student (Lightweight CNN)
-# ---------------------------
 class ForensicStudentCNN(nn.Module):
     """
     Lightweight 5-layer CNN for the 6-channel forensic feature stack.
@@ -155,10 +149,7 @@ class ForensicStudentCNN(nn.Module):
         x = self.proj(x)              # (B, out_dim)
         return x
 
-
-# ---------------------------
 # Student Model (Dual-Domain)
-# ---------------------------
 class StudentModel(nn.Module):
     """
     Dual-domain student combining semantic (MobileNetV2) and forensic

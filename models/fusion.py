@@ -18,7 +18,6 @@ Design rationale:
 import torch
 import torch.nn as nn
 
-
 class GatedFusion(nn.Module):
     """
     Gated fusion of two feature vectors with matching dimensionality.

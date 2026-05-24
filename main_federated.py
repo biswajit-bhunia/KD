@@ -16,28 +16,22 @@ import torch
 from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
 
-# Data
 from data.dataset import DeepfakeDataset
 from data.loader import load_samples
 from data.split import find_cross_split_duplicates, find_cross_split_near_duplicates, split_samples
 from data.partitioner import partition_by_generator, print_partition_stats
 
-# Models
 from models.teacher import TeacherModel
 from models.student import StudentModel
 
-# Training (centralized — for teacher)
 from training.train import train_teacher
 from training.validate import evaluate
 
-# Federation
 from federation.client import FederatedClient
 from federation.server import FederatedServer
 
-# Utils
 from utils.checkpoint import save_checkpoint
 from utils.reproducibility import make_generator, seed_everything, seed_worker
-
 
 def _fmt_time(seconds):
     """Format seconds into human-readable string."""
@@ -51,7 +45,6 @@ def _fmt_time(seconds):
         m, s = divmod(rem, 60)
         return f"{int(h)}h {int(m)}m {int(s)}s"
 
-
 def print_metrics(tag, metrics):
     print(
         f"{tag} | "
@@ -62,13 +55,9 @@ def print_metrics(tag, metrics):
         f"AUC: {metrics['auc']:.4f}"
     )
 
-
 def main():
     pipeline_start = time.time()
 
-    # ---------------------------
-    # 1. Load config
-    # ---------------------------
     with open("configs/config.yaml", "r") as f:
         config = yaml.safe_load(f)
 
@@ -101,9 +90,6 @@ def main():
     print(f"  FedProx μ: {mu} | IID: {iid_partition}")
     print(f"{'='*60}")
 
-    # ---------------------------
-    # 2. Load & Split Dataset
-    # ---------------------------
     print("\n  Loading dataset...")
     load_start = time.time()
     samples = load_samples("data/")
@@ -187,9 +173,6 @@ def main():
         generator=make_generator(seed + 2),
     )
 
-    # ---------------------------
-    # 3. Phase 1: Train Teacher Centrally
-    # ---------------------------
     print(f"\n{'─'*60}")
     print(f"  PHASE 1: Centralized Teacher Pretraining ({teacher_epochs} epochs)")
     print(f"{'─'*60}")
@@ -233,7 +216,7 @@ def main():
     )
 
     print("\n  Evaluating teacher...")
-    metrics = evaluate(teacher, val_loader, device)
+    metrics = evaluate(teacher, val_loader, device, calibrate_threshold=True)
     print_metrics("  [Teacher]", metrics)
 
     save_checkpoint(teacher, teacher_opt, epoch=teacher_epochs, path="checkpoints/teacher_federated.pth")
@@ -246,9 +229,6 @@ def main():
     for p in teacher.parameters():
         p.requires_grad = False
 
-    # ---------------------------
-    # 4. Initialize Student
-    # ---------------------------
     print("\n  Initializing student model...")
     global_student = StudentModel().to(device)
 
@@ -256,9 +236,6 @@ def main():
     print(f"  Student model: {student_params:,} parameters "
           f"({student_params/teacher_params*100:.1f}% of teacher)")
 
-    # ---------------------------
-    # 5. Partition Data Across Clients
-    # ---------------------------
     print(f"\n{'─'*60}")
     print(f"  DATA PARTITIONING ({'IID' if iid_partition else 'Non-IID by generator'})")
     print(f"{'─'*60}")
@@ -273,9 +250,6 @@ def main():
     print_partition_stats(client_data)
     print(f"  Partitioned in {time.time() - partition_start:.2f}s")
 
-    # ---------------------------
-    # 6. Create Federated Clients
-    # ---------------------------
     print("\n  Creating federated clients...")
     client_start = time.time()
     clients = []
@@ -296,9 +270,6 @@ def main():
 
     print(f"  {len(clients)} clients created in {time.time() - client_start:.1f}s")
 
-    # ---------------------------
-    # 7. Phase 2: Federated Student Training
-    # ---------------------------
     print(f"\n{'─'*60}")
     print(f"  PHASE 2: Federated Student Training")
     print(f"{'─'*60}")
@@ -333,22 +304,20 @@ def main():
     global_student.load_state_dict(torch.load(best_federated_path, map_location=device, weights_only=True))
 
     print("\n  Final evaluation on validation split...")
-    final_val_metrics = evaluate(global_student, val_loader, device)
+    final_val_metrics = evaluate(global_student, val_loader, device, calibrate_threshold=True)
     print_metrics("  [Federated Val]", final_val_metrics)
 
-    print("\n  Final test evaluation using validation threshold...")
+    print("\n  Final test evaluation using validation threshold (with TTA)...")
     final_test_metrics = evaluate(
         global_student,
         test_loader,
         device,
         threshold=final_val_metrics["threshold"],
         calibrate_threshold=False,
+        use_tta=True,
     )
     print_metrics("  [Federated Test]", final_test_metrics)
 
-    # ---------------------------
-    # 8. Final Summary
-    # ---------------------------
     total_time = time.time() - pipeline_start
 
     best_round = max(range(len(history)), key=lambda i: history[i]["auc"])
@@ -368,7 +337,6 @@ def main():
     print(f"")
     print(f"  Run `python main.py` for centralized comparison.")
     print(f"{'='*60}\n")
-
 
 if __name__ == "__main__":
     main()
