@@ -281,7 +281,102 @@ E_{fused} = \alpha E_{sem} + (1 - \alpha) E_{for}
 **Intuition:** If the image is heavily compressed, the forensic features might be destroyed (noise). The network learns to look at both, realize the forensic vector is useless, push $\alpha$ toward 1, and rely purely on the semantic vector.
 
 ### 4. Knowledge Distillation (KD)
-**What it is:** Forcing the Student to mimic the Teacher.
+**What it is:** Forcing the Student to mimic the Teacher. The diagram below illustrates exactly how the dual-stream encoders process data and where the distillation losses attach to the network flow.
+
+```mermaid
+graph TD
+%% =========================
+%% INPUTS
+%% =========================
+RGB["RGB Face Image"]
+FOR["Forensic Feature Stack<br/>(SRM + FFT)"]
+
+%% =========================
+%% TEACHER
+%% =========================
+subgraph Teacher["Teacher Network"]
+    direction TB
+    subgraph T_Enc["Dual-Stream Encoders"]
+        direction LR
+        T_Sem["SemanticTeacher<br/>ResNet-50"]
+        T_For["ForensicTeacher<br/>ResNet-18 (6ch)"]
+    end
+    subgraph T_Fusion["Fusion & Classification"]
+        direction TB
+        T_Gate["Gated Fusion"]
+        T_Emb["Teacher Embedding (256d)"]
+        T_Pre["Pre-Dropout Embedding"]
+        T_Drop["Dropout 0.5"]
+        T_Cls["Linear 256 → 2"]
+        T_Log["Teacher Logits"]
+    end
+end
+
+%% =========================
+%% STUDENT
+%% =========================
+subgraph Student["Student Network"]
+    direction TB
+    subgraph S_Enc["Dual-Stream Encoders"]
+        direction LR
+        S_Sem["SemanticStudent<br/>MobileNetV2"]
+        S_For["ForensicStudent<br/>5-Layer CNN"]
+    end
+    subgraph S_Fusion["Fusion & Classification"]
+        direction TB
+        S_Gate["Gated Fusion"]
+        S_Emb["Student Embedding (256d)"]
+        S_Pre["Pre-Dropout Embedding"]
+        S_Drop["Dropout 0.4"]
+        S_Cls["Linear 256 → 2"]
+        S_Log["Student Logits"]
+    end
+end
+
+%% =========================
+%% SHARED INPUTS
+%% =========================
+RGB --> T_Sem
+RGB --> S_Sem
+FOR --> T_For
+FOR --> S_For
+
+%% =========================
+%% TEACHER FLOW
+%% =========================
+T_Sem --> T_Gate
+T_For --> T_Gate
+T_Gate --> T_Emb
+T_Emb --> T_Pre
+T_Emb --> T_Drop
+T_Drop --> T_Cls
+T_Cls --> T_Log
+
+%% =========================
+%% STUDENT FLOW
+%% =========================
+S_Sem --> S_Gate
+S_For --> S_Gate
+S_Gate --> S_Emb
+S_Emb --> S_Pre
+S_Emb --> S_Drop
+S_Drop --> S_Cls
+S_Cls --> S_Log
+
+%% =========================
+%% DISTILLATION
+%% =========================
+subgraph Distillation["Knowledge Distillation"]
+    direction TB
+    KD_Feat["Feature Distillation<br/>MSE on L2-Normalized Vectors"]
+    KD_Log["Logit Distillation<br/>KL Divergence"]
+end
+
+T_Pre -. "teacher embedding" .-> KD_Feat
+S_Pre -. "student embedding" .-> KD_Feat
+T_Log -. "teacher logits" .-> KD_Log
+S_Log -. "student logits" .-> KD_Log
+```
 
 **Feature KD (MSE on L2-Normalized Vectors):**
 ```math
@@ -389,6 +484,7 @@ function ClientUpdate(k, w_global, T)
 22:        
 23: return S_k.weights
 ```
+
 
 **Math of Federation (FedAvg):**
 ```math
