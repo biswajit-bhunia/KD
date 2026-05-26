@@ -342,69 +342,53 @@ graph TD
 
 Below is the formal step-by-step algorithm detailing exactly how the Federated Knowledge Distillation loop operates.
 
-$$
-\begin{array}{l}
-\hline
-\\
-\textbf{Algorithm 1: Dual-Domain Federated Knowledge Distillation (FedProx)}\\
-\\
-\hline
-\\
-\textbf{Input: } \text{Client set } \mathcal{K},\ \text{Server},\ \text{Frozen Teacher } T \\
-\textbf{Hyperparameters: } R,\ E,\ \eta,\ \mu,\ \lambda \\
-\\
-\textbf{1:} \quad \text{Server initializes Global Student } S_0 \text{ with weights } w_0 \\
-\textbf{2:} \quad \textbf{for } r = 1, 2, \ldots, R \ \textbf{do} \\
-\textbf{3:} \quad\quad \mathcal{S}_r \subseteq \mathcal{K} \quad \triangleright\ \text{Select client subset} \\
-\textbf{4:} \quad\quad \text{Broadcast } w_r \rightarrow \text{all } k \in \mathcal{S}_r \\
-\\
-\textbf{5:} \quad\quad \triangleright\ \textit{Local Training Phase} \\
-\textbf{6:} \quad\quad \textbf{for each } k \in \mathcal{S}_r \text{ in parallel } \textbf{do} \\
-\textbf{7:} \quad\quad\quad w_{r,k} \leftarrow \texttt{ClientUpdate}(k,\ w_r,\ T) \\
-\textbf{8:} \quad\quad \textbf{end for} \\
-\\
-\textbf{9:} \quad\quad \triangleright\ \textit{Server Aggregation Phase} \\
-\textbf{10:} \quad\quad N \leftarrow \textstyle\sum_{k \in \mathcal{S}_r} n_k \\
-\textbf{11:} \quad\quad w_{r+1} \leftarrow \sum_{k \in \mathcal{S}_r} \dfrac{n_k}{N} \cdot w_{r,k} \\
-\\
-\textbf{12:} \quad\quad \text{Evaluate } w_{r+1} \text{ on Validation Set} \\
-\textbf{13:} \quad \textbf{end for} \\
-\\
-\hline
-\\
-\textbf{function } \texttt{ClientUpdate}(k,\ w_{\text{global}},\ T) \\
-\\
-\hline
-\\
-\textbf{1:} \quad \text{Init local student } S_k \leftarrow w_{\text{global}} \\
-\textbf{2:} \quad \textbf{for } e = 1 \text{ to } E \ \textbf{do} \\
-\textbf{3:} \quad\quad \textbf{for each batch } (X_{\text{rgb}},\ y_{\text{true}}) \in \mathcal{D}_k \ \textbf{do} \\
-\\
-\textbf{4:} \quad\quad\quad \triangleright\ \textit{Step 1 — Data Preparation} \\
-\textbf{5:} \quad\quad\quad X_{\text{for}} \leftarrow \texttt{SRM}(X_{\text{rgb}}) \oplus \texttt{FFT}(X_{\text{rgb}}) \\
-\\
-\textbf{6:} \quad\quad\quad \triangleright\ \textit{Step 2 — Teacher Forward Pass}\ (\nabla = 0) \\
-\textbf{7:} \quad\quad\quad Z_{\text{teacher}},\ \_ \leftarrow T(X_{\text{rgb}},\ X_{\text{for}}) \\
-\\
-\textbf{8:} \quad\quad\quad \triangleright\ \textit{Step 3 — Student Forward Pass} \\
-\textbf{9:} \quad\quad\quad Z_{\text{student}},\ \hat{Y} \leftarrow S_k(X_{\text{rgb}},\ X_{\text{for}}) \\
-\\
-\textbf{10:} \quad\quad\quad \triangleright\ \textit{Step 4 — Compute Losses} \\
-\textbf{11:} \quad\quad\quad \mathcal{L}_{\text{CE}} \leftarrow \texttt{CrossEntropy}(\hat{Y},\ y_{\text{true}}) \\
-\textbf{12:} \quad\quad\quad \mathcal{L}_{\text{KD}} \leftarrow \left\| \dfrac{Z_{\text{student}}}{\|Z_{\text{student}}\|_2} - \dfrac{Z_{\text{teacher}}}{\|Z_{\text{teacher}}\|_2} \right\|^2 \\
-\textbf{13:} \quad\quad\quad \mathcal{L}_{\text{Prox}} \leftarrow \dfrac{\mu}{2} \left\| w_k - w_{\text{global}} \right\|^2 \\
-\textbf{14:} \quad\quad\quad \mathcal{L}_{\text{Total}} \leftarrow \mathcal{L}_{\text{CE}}\ +\ \lambda\,\mathcal{L}_{\text{KD}}\ +\ \mathcal{L}_{\text{Prox}} \\
-\\
-\textbf{15:} \quad\quad\quad \triangleright\ \textit{Step 5 — Backpropagation} \\
-\textbf{16:} \quad\quad\quad w_k \leftarrow w_k - \eta\,\nabla_{w_k}\,\mathcal{L}_{\text{Total}} \\
-\\
-\textbf{17:} \quad\quad \textbf{end for} \\
-\textbf{18:} \quad \textbf{end for} \\
-\textbf{19:} \quad \textbf{return } w_k \\
-\\
-\hline
-\end{array}
-$$
+```text
+Algorithm 1: Dual-Domain Federated Knowledge Distillation (FedProx)
+───────────────────────────────────────────────────────────────────
+Input: Set of clients K, Server, Frozen Teacher model T
+Hyperparameters: Number of rounds R, Local epochs E, Learning rate η, FedProx weight μ, Feature KD weight λ
+
+1: Server initializes Global Student model S_0
+2: for round r = 1, 2, ..., R do
+3:     Server selects a subset of clients S_r ⊆ K
+4:     Server broadcasts global weights w_r to all clients k ∈ S_r
+5:     
+6:     // Local Training Phase
+7:     for each client k ∈ S_r in parallel do
+8:         w_{r,k} ← ClientUpdate(k, w_r, T)
+9:     
+10:    // Server Aggregation Phase (FedAvg logic)
+11:    N ← Total samples across all active clients
+12:    w_{r+1} ← ∑_{k ∈ S_r} (n_k / N) * w_{r,k}
+13:    
+14:    Evaluate w_{r+1} on Validation Set
+
+───────────────────────────────────────────────────────────────────
+function ClientUpdate(k, w_global, T)
+1: Initialize local student model S_k with weights w_global
+2: for local epoch e = 1 to E do
+3:     for each batch (X_rgb, y_true) in local dataset D_k do
+4:         
+5:         // 1. Data Preparation
+6:         X_for ← compute_SRM_and_FFT(X_rgb)
+7:         
+8:         // 2. Teacher Forward Pass (Frozen, No Gradients)
+9:         Z_teacher, _ ← T(X_rgb, X_for)
+10:        
+11:        // 3. Student Forward Pass
+12:        Z_student, Y_logits ← S_k(X_rgb, X_for)
+13:        
+14:        // 4. Compute Losses
+15:        L_CE ← CrossEntropy(Y_logits, y_true)
+16:        L_KD ← || (Z_student / ||Z_student||₂) - (Z_teacher / ||Z_teacher||₂) ||²
+17:        L_Prox ← (μ / 2) * || S_k.weights - w_global ||²
+18:        L_Total ← L_CE + λ * L_KD + L_Prox
+19:        
+20:        // 5. Backpropagation
+21:        S_k.weights ← S_k.weights - η * ∇L_Total
+22:        
+23: return S_k.weights
+```
 
 **Math of Federation (FedAvg):**
 ```math
