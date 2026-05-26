@@ -1,25 +1,10 @@
-"""
-Centralized Deepfake Detection — Training Entry Point
-
-This script runs the full 3-stage centralized pipeline:
-1. Stage 1: Train Teacher (ResNet-50 semantic + ResNet-18 forensic)
-2. Stage 2: Train Student with multi-level KD (MobileNetV2 semantic + CNN forensic)
-3. Stage 3: GRL generator invariance (optional, disabled by default with grl_epochs=0)
-
-Usage:
-    python main.py
-"""
-
 import time
 import yaml
 import torch
-from torch.utils.data import DataLoader, WeightedRandomSampler
+from torch.utils.data import DataLoader
 from collections import Counter
-from sklearn.model_selection import train_test_split
-
 from data.dataset import DeepfakeDataset
 from data.loader import load_samples
-from data.split import find_cross_split_duplicates, find_cross_split_near_duplicates, split_samples
 
 from models.teacher import TeacherModel
 from models.student import StudentModel
@@ -67,6 +52,9 @@ def main():
     seed          = config.get("seed", 42)
     deterministic = config.get("deterministic", False)
     seed_everything(seed, deterministic=deterministic)
+    
+    aug_grayscale_p = config.get("aug_grayscale_p", 0.2)
+    aug_color_jitter_p = config.get("aug_color_jitter_p", 0.3)
 
     lambda_kd      = config["lambda_kd"]
     lambda_feat_kd = config.get("lambda_feat_kd", 0.5)
@@ -82,86 +70,43 @@ def main():
     print(f"  λ_kd: {lambda_kd} | λ_feat: {lambda_feat_kd}")
     print(f"{'='*60}")
 
-    print("\n  Loading dataset...")
+    train_data_dir = config.get("train_root", "D:\\ff++_extracted")
+    test_data_dir  = config.get("test_root", "D:\\DFDC_EXTRACTED")
+    val_split_ratio = config.get("val_split_ratio", 0.2)
+
+    print(f"\n  Loading Train/Val Dataset from {train_data_dir}...")
     load_start = time.time()
-    samples = load_samples("data/")
+    ffpp_samples = load_samples(train_data_dir)
+    print(f"  Loaded {len(ffpp_samples)} train/val samples in {time.time() - load_start:.1f}s")
 
-    # Build name → ID mapping from loaded samples so config can use human-readable names
-    import os as _os
-    _gen_name_to_id = {}
-    for path, label, gen_id in samples:
-        if label == 1 and gen_id not in _gen_name_to_id.values():
-            gen_name = _os.path.basename(_os.path.dirname(path))
-            _gen_name_to_id[gen_name] = gen_id
+    print(f"  Loading Test Dataset from {test_data_dir}...")
+    load_start = time.time()
+    test_samples = load_samples(test_data_dir)
+    print(f"  Loaded {len(test_samples)} test samples in {time.time() - load_start:.1f}s")
 
-    def _resolve_generator(name_key):
-        name = config.get(name_key, None)
-        if name is None:
-            return None
-        if name not in _gen_name_to_id:
-            available = sorted(_gen_name_to_id.keys())
-            raise ValueError(f"Config '{name_key}: {name}' not found. Available: {available}")
-        return _gen_name_to_id[name]
+    from data.split import split_by_video_identity
+    train_samples, val_samples = split_by_video_identity(ffpp_samples, test_size=val_split_ratio, random_state=seed)
 
-    val_gen_id  = _resolve_generator("val_generator_name")
-    test_gen_id = _resolve_generator("test_generator_name")
-
-    train_samples, val_samples, test_samples, split_info = split_samples(
-        samples,
-        test_size=0.2,
-        mode="generator_holdout_3way",
-        holdout_generator_id=val_gen_id,
-        test_generator_id=test_gen_id,
-        random_state=seed
-    )
-
-    n_real = sum(1 for s in samples if s[1] == 0)
-    n_fake = sum(1 for s in samples if s[1] == 1)
-    n_gens = len(set(s[2] for s in samples if s[1] == 1))
-    print(f"  Loaded {len(samples)} samples ({n_real} real, {n_fake} fake, {n_gens} generators) "
-          f"in {time.time() - load_start:.1f}s")
     print(f"  Train: {len(train_samples)} | Val: {len(val_samples)} | Test: {len(test_samples)}")
-    print(f"  Train fake generators: {', '.join(split_info['train_generators'])}")
-    print(f"  Val fake generator:    {split_info['val_generator']}")
-    print(f"  Test fake generator:   {split_info['test_generator']}")
 
-    duplicates = find_cross_split_duplicates({
-        "train": train_samples,
-        "val": val_samples,
-        "test": test_samples,
-    })
-    if duplicates:
-        print(f"  ⚠ Found {len(duplicates)} exact duplicate image hashes across splits.")
-        print(f"  ⚠ Example duplicate paths: {duplicates[0][2]}")
-    else:
-        print("  Exact duplicate check: no cross-split duplicates found.")
-
-    real_near_duplicates = find_cross_split_near_duplicates({
-        "train": [s for s in train_samples if s[1] == 0],
-        "val": [s for s in val_samples if s[1] == 0],
-        "test": [s for s in test_samples if s[1] == 0],
-    }, max_hamming_distance=1)
-    if real_near_duplicates:
-        print(f"  ⚠ Found {len(real_near_duplicates)} possible near-duplicate real-image pairs across splits.")
-        print(f"  ⚠ Example near-duplicate paths: {real_near_duplicates[0][1]}")
-    else:
-        print("  Real near-duplicate check: no likely cross-split duplicates found.")
-
-    train_dataset = DeepfakeDataset(train_samples, augment=True)
+    train_dataset = DeepfakeDataset(
+        train_samples, augment=True, 
+        aug_grayscale_p=aug_grayscale_p, 
+        aug_color_jitter_p=aug_color_jitter_p
+    )
     val_dataset   = DeepfakeDataset(val_samples,   augment=False)
     test_dataset  = DeepfakeDataset(test_samples,  augment=False)
 
     train_labels = [s[1] for s in train_samples]
     counts  = Counter(train_labels)
-    weights = [1.0 / counts[l] for l in train_labels]
+    class_weights = torch.tensor([1.0 / counts[0], 1.0 / counts[1]], dtype=torch.float32).to(device)
 
     def _build_train_loader(dataset, loader_seed):
         gen = make_generator(loader_seed)
-        samp = WeightedRandomSampler(weights, len(weights), replacement=True, generator=gen)
         return DataLoader(
             dataset,
             batch_size=batch_size,
-            sampler=samp,
+            shuffle=True,
             num_workers=4,
             pin_memory=True,
             worker_init_fn=seed_worker,
@@ -214,7 +159,8 @@ def main():
         dataloader=teacher_train_loader,
         optimizer=teacher_opt,
         device=device,
-        epochs=teacher_epochs
+        epochs=teacher_epochs,
+        class_weights=class_weights,
     )
 
     print("\n  Evaluating teacher...")
@@ -246,7 +192,8 @@ def main():
         val_loader=val_loader,
         val_every=3,
         patience=6,
-        temperature_kd=temp_kd
+        temperature_kd=temp_kd,
+        class_weights=class_weights,
     )
 
     print("\n  Evaluating student...")

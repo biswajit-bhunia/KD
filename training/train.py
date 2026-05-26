@@ -32,7 +32,8 @@ def move_to_device(batch, device):
     return {
         "image":  batch["image"].to(device),
         "label":  batch["label"].to(device),
-        "gen_id": batch["gen_id"].to(device)
+        "gen_name": batch["gen_name"],
+        "video_id": batch["video_id"]
     }
 
 def _fmt_time(seconds):
@@ -96,11 +97,13 @@ def train_teacher(
     device,
     epochs=5,
     health_check_every=3,
+    class_weights=None,
 ):
-    cls_loss = ClassificationLoss(label_smoothing=0.1)
+    cls_loss = ClassificationLoss(label_smoothing=0.05, weight=class_weights)
 
     scaler = torch.amp.GradScaler(device.type, enabled=device.type == "cuda")
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-5)
+    # No LR scheduler — for short training (10-20 epochs), constant LR is more
+    # effective than cosine decay which wastes the final ~30% of epochs at near-zero LR.
 
     model.train()
     stage_start = time.time()
@@ -136,7 +139,7 @@ def train_teacher(
 
             total_loss += loss.item()
 
-        scheduler.step()
+        # Removed scheduler.step() since we use a constant LR
 
         epoch_time = time.time() - epoch_start
         avg_loss = total_loss / num_batches
@@ -169,6 +172,7 @@ def train_student(
     patience=2,
     health_check_every=3,
     temperature_kd=4.0,
+    class_weights=None,
 ):
     """
     Train student with multi-level knowledge distillation from teacher.
@@ -179,7 +183,7 @@ def train_student(
       - Embedding KD (MSE)
       - Logits KD (KL-div)
     """
-    cls_loss = ClassificationLoss(label_smoothing=0.1)
+    cls_loss = ClassificationLoss(label_smoothing=0.1, weight=class_weights)
     multi_kd = MultiLevelKD(temperature=temperature_kd)
 
     # Freeze teacher
@@ -224,10 +228,10 @@ def train_student(
 
             x_for = build_forensic_stack(x_rgb)
 
-            with torch.no_grad():
-                teacher_out = teacher(x_rgb, x_for)
-
             with torch.amp.autocast(device.type, enabled=device.type == "cuda"):
+                with torch.no_grad():
+                    teacher_out = teacher(x_rgb, x_for)
+
                 student_out = student(x_rgb, x_for)
 
                 loss_ce  = cls_loss(student_out["logits"], labels)

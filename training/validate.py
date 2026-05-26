@@ -65,6 +65,8 @@ def evaluate(
     all_preds  = []
     all_labels = []
     all_probs  = []
+    all_gen_names = []
+    all_video_ids = []
 
     num_batches = len(dataloader)
     eval_start = time.time()
@@ -101,6 +103,8 @@ def evaluate(
 
             all_labels.extend(labels.detach().cpu().numpy())
             all_probs.extend(probs.detach().cpu().numpy())
+            all_gen_names.extend(batch["gen_name"])
+            all_video_ids.extend(batch["video_id"])
 
             # Progress at 50% and 100%
             if (batch_idx + 1) == num_batches or (batch_idx + 1) == num_batches // 2:
@@ -111,45 +115,95 @@ def evaluate(
 
     eval_time = time.time() - eval_start
 
-    labels_np = np.array(all_labels)
-    probs_np = np.array(all_probs)
+    # --- VIDEO-LEVEL AGGREGATION ---
+    from collections import defaultdict
+    video_to_probs = defaultdict(list)
+    video_to_label = {}
+    video_to_gen = {}
+
+    for v_id, prob, lbl, gen in zip(all_video_ids, all_probs, all_labels, all_gen_names):
+        video_to_probs[v_id].append(prob)
+        video_to_label[v_id] = lbl
+        video_to_gen[v_id] = gen
+
+    vid_labels_list = []
+    vid_probs_list = []
+    vid_gen_names_list = []
+
+    for v_id, probs_list in video_to_probs.items():
+        vid_probs_list.append(np.mean(probs_list))
+        vid_labels_list.append(video_to_label[v_id])
+        vid_gen_names_list.append(video_to_gen[v_id])
+
+    labels_np = np.array(vid_labels_list)
+    probs_np = np.array(vid_probs_list)
+    gen_names_np = np.array(vid_gen_names_list)
+    num_frames = len(all_labels)
+    num_videos = len(labels_np)
+    # -------------------------------
 
     if threshold is not None:
-        active_threshold = float(threshold)
+        eval_threshold = float(threshold)
         threshold_source = "provided"
-    elif calibrate_threshold:
-        active_threshold, _ = find_optimal_threshold(labels_np, probs_np)
-        threshold_source = "val-calibrated"
     else:
-        active_threshold = 0.5
+        eval_threshold = 0.5
         threshold_source = "default"
 
-    # Compute metrics at BOTH thresholds
-    preds_default  = (probs_np > 0.5).astype(int)
-    preds_active   = (probs_np > active_threshold).astype(int)
+    if calibrate_threshold:
+        calibrated_threshold, _ = find_optimal_threshold(labels_np, probs_np)
+        eval_threshold = calibrated_threshold
+        threshold_source = "calibrated"
+    else:
+        threshold_source = "provided"
 
-    # Use active threshold for reported metrics
-    acc       = accuracy_score(labels_np, preds_active)
-    precision = precision_score(labels_np, preds_active, zero_division=0)
-    recall    = recall_score(labels_np, preds_active, zero_division=0)
-    f1        = f1_score(labels_np, preds_active, zero_division=0)
+    returned_threshold = eval_threshold
+
+    print(f"    [Eval] Complete ({num_frames} frames -> {num_videos} videos in {eval_time:.1f}s)")
+    print(f"    [Eval] Eval Threshold: {eval_threshold:.3f} ({threshold_source})")
+
+    preds_eval = (probs_np > eval_threshold).astype(int)
+
+    acc       = accuracy_score(labels_np, preds_eval)
+    precision = precision_score(labels_np, preds_eval, zero_division=0)
+    recall    = recall_score(labels_np, preds_eval, zero_division=0)
+    f1        = f1_score(labels_np, preds_eval, zero_division=0)
 
     try:
         auc = roc_auc_score(labels_np, probs_np)
     except ValueError:
         auc = 0.0
 
-    # Also compute at default 0.5 for comparison
-    acc_05  = accuracy_score(labels_np, preds_default)
-    rec_05  = recall_score(labels_np, preds_default, zero_division=0)
-    f1_05   = f1_score(labels_np, preds_default, zero_division=0)
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    from sklearn.metrics import confusion_matrix
+    cm = confusion_matrix(labels_np, preds_eval)
+    plt.figure(figsize=(6, 5))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Real', 'Fake'], yticklabels=['Real', 'Fake'])
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
+    plt.title(f"Confusion Matrix (Threshold: {eval_threshold:.3f})")
+    plt.savefig("confusion_matrix.png")
+    plt.close()
 
-    print(f"    [Eval] Complete ({len(labels_np)} samples in {eval_time:.1f}s)")
-    print(f"    [Eval] Threshold: {active_threshold:.3f} "
-          f"({threshold_source}; default 0.5)  AUC is threshold-free")
-    if abs(active_threshold - 0.5) > 0.05:
-        print(f"    [Eval] At t=0.5:   Acc={acc_05:.4f} | Rec={rec_05:.4f} | F1={f1_05:.4f}")
-        print(f"    [Eval] At t={active_threshold:.3f}: Acc={acc:.4f} | Rec={recall:.4f} | F1={f1:.4f} ← using this")
+    # Per-generator evaluation
+    print(f"\n    [Eval] --- Per-Generator Breakdown (Video-Level) ---")
+    unique_gens = set(gen_names_np)
+    for gen in unique_gens:
+        if gen == "real":
+            continue
+        mask = (gen_names_np == gen) | (gen_names_np == "real")
+        gen_labels = labels_np[mask]
+        gen_probs = probs_np[mask]
+        gen_preds = preds_eval[mask]
+        
+        if len(np.unique(gen_labels)) > 1:
+            try:
+                g_auc = roc_auc_score(gen_labels, gen_probs)
+            except ValueError:
+                g_auc = 0.0
+            g_f1 = f1_score(gen_labels, gen_preds, zero_division=0)
+            g_acc = accuracy_score(gen_labels, gen_preds)
+            print(f"    [Eval] {gen:15s} | Acc: {g_acc:.4f} | F1: {g_f1:.4f} | AUC: {g_auc:.4f}")
 
     return {
         "accuracy":  acc,
@@ -157,5 +211,5 @@ def evaluate(
         "recall":    recall,
         "f1":        f1,
         "auc":       auc,
-        "threshold": active_threshold
+        "threshold": returned_threshold
     }

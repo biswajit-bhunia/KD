@@ -91,19 +91,14 @@ class ForensicTeacher(nn.Module):
         model = models.resnet18(weights=weights)
 
         # Replace first conv: 3 → 6 channels
-        old_conv = model.conv1  # Conv2d(3, 64, 7, stride=2, padding=3)
         new_conv = nn.Conv2d(
             6, 64, kernel_size=7, stride=2, padding=3, bias=False
         )
 
-        # Transfer pretrained weights: repeat 3-ch weights 2 times for 6 channels
-        if pretrained and old_conv.weight is not None:
-            with torch.no_grad():
-                # old_conv.weight: (64, 3, 7, 7) → repeat along channel dim → (64, 6, 7, 7)
-                # Scale by 1/sqrt(2) to preserve activation variance: conv sums over
-                # input channels, so repeating identical weights 2× inflates variance
-                # by 2×. Dividing by sqrt(2) restores the pretrained activation scale.
-                new_conv.weight.copy_(old_conv.weight.repeat(1, 2, 1, 1) / (2 ** 0.5))
+        # Kaiming init for the new 6-channel conv. The old code repeated ImageNet
+        # RGB weights 2×, but SRM residuals and FFT magnitudes have completely
+        # different statistics from RGB — pretrained RGB weights are misleading.
+        nn.init.kaiming_normal_(new_conv.weight, mode='fan_out', nonlinearity='relu')
         model.conv1 = new_conv
 
         # Remove classifier — keep everything up to avgpool
@@ -164,7 +159,7 @@ class TeacherModel(nn.Module):
         self.fusion = GatedFusion(feat_dim=embed_dim)
 
         # Dropout for regularization
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(0.3)
 
         # Classifier
         self.classifier = nn.Linear(embed_dim, num_classes)

@@ -98,7 +98,7 @@ class ForensicStudentCNN(nn.Module):
         super().__init__()
 
         self.net = nn.Sequential(
-            # Block 1: 12 → 64, downsample 2x
+            # Block 1: 6 → 64, downsample 2x
             nn.Conv2d(in_channels, 64, 3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),

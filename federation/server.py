@@ -59,6 +59,7 @@ class FederatedServer:
         mu: float = 0.001,
         temperature_kd: float = 4.0,
         save_path: str = "checkpoints/student_federated_best.pth",
+        class_weights: Optional[torch.Tensor] = None,
     ):
         print(f"\n{'='*60}")
         print(f"  Federated Training Configuration")
@@ -72,9 +73,9 @@ class FederatedServer:
 
         for round_idx in range(num_rounds):
             round_start = time.time()
-            print(f"\n{'─'*50}")
+            print(f"\n{'-'*50}")
             print(f"  ROUND {round_idx + 1}/{num_rounds}")
-            print(f"{'─'*50}")
+            print(f"{'-'*50}")
 
             selected = self._select_clients()
             client_ids = [c.client_id for c in selected]
@@ -86,7 +87,7 @@ class FederatedServer:
             client_updates = []
 
             for i, client in enumerate(selected):
-                print(f"\n    ┌─ Client {client.client_id} ({i+1}/{len(selected)}) "
+                print(f"\n    >- Client {client.client_id} ({i+1}/{len(selected)}) "
                       f"| {client.num_samples} samples | "
                       f"{client.num_generators} generators")
 
@@ -102,12 +103,13 @@ class FederatedServer:
                     temperature_kd=temperature_kd,
                     round_idx=round_idx,
                     total_rounds=num_rounds,
+                    class_weights=class_weights,
                 )
 
                 # Move local state to CPU before appending to prevent GPU OOM
                 local_state_cpu = {k: v.cpu().clone() for k, v in local_state.items()}
                 client_updates.append((local_state_cpu, client.num_samples))
-                print(f"    └─ Client {client.client_id} complete")
+                print(f"    <- Client {client.client_id} complete")
                 
                 # Critical: Free up GPU memory for the next client
                 del local_state
@@ -132,17 +134,17 @@ class FederatedServer:
             avg_round_time = sum(round_times) / len(round_times)
             eta = avg_round_time * (num_rounds - round_idx - 1)
 
-            print(f"\n  ╔══ Round {round_idx+1}/{num_rounds} Results ══")
-            print(f"  ║ Accuracy:  {metrics['accuracy']:.4f}")
-            print(f"  ║ Precision: {metrics['precision']:.4f}")
-            print(f"  ║ Recall:    {metrics['recall']:.4f}")
-            print(f"  ║ F1:        {metrics['f1']:.4f}")
-            print(f"  ║ AUC:       {metrics['auc']:.4f}")
-            print(f"  ╟──")
-            print(f"  ║ Round time: {_fmt_time(round_time)} | "
+            print(f"\n  === Round {round_idx+1}/{num_rounds} Results ===")
+            print(f"  | Accuracy:  {metrics['accuracy']:.4f}")
+            print(f"  | Precision: {metrics['precision']:.4f}")
+            print(f"  | Recall:    {metrics['recall']:.4f}")
+            print(f"  | F1:        {metrics['f1']:.4f}")
+            print(f"  | AUC:       {metrics['auc']:.4f}")
+            print(f"  ---")
+            print(f"  | Round time: {_fmt_time(round_time)} | "
                   f"Total elapsed: {_fmt_time(elapsed_total)} | "
                   f"ETA: {_fmt_time(eta)}")
-            print(f"  ╚══")
+            print(f"  ===")
 
             self.round_history.append(metrics)
 

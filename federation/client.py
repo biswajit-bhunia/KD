@@ -6,7 +6,7 @@ from typing import List, Tuple, Optional
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, WeightedRandomSampler
+from torch.utils.data import DataLoader
 
 from data.dataset import DeepfakeDataset
 from features.forensic import build_forensic_stack
@@ -52,21 +52,43 @@ class FederatedClient:
         batch_size: int = 32,
         image_size: int = 256,
         seed: int = 42,
+        aug_grayscale_p: float = 0.2,
+        aug_color_jitter_p: float = 0.3,
     ):
         self.client_id = client_id
         self.samples = samples
         self.teacher = teacher
         self.device = device
         self.batch_size = batch_size
+        self.class_weights = None
 
         # Build dataloader
-        dataset = DeepfakeDataset(samples, image_size=image_size, augment=True)
+        dataset = DeepfakeDataset(
+            samples, image_size=image_size, augment=True,
+            aug_grayscale_p=aug_grayscale_p,
+            aug_color_jitter_p=aug_color_jitter_p
+        )
 
-        labels = [s[1] for s in samples]
-        counts = Counter(labels)
-        weights = [1.0 / counts[l] for l in labels]
         data_generator = make_generator(seed + client_id)
-        sampler = WeightedRandomSampler(weights, len(weights), replacement=True, generator=data_generator)
+        
+        from collections import Counter
+        client_labels = [s[1] for s in samples]
+        counts = Counter(client_labels)
+        n_real = counts[0]
+        n_fake = counts[1]
+        n_total = n_real + n_fake
+        
+        # Calculate balanced weights for the sampler
+        w_real_sample = n_total / (2.0 * max(n_real, 1))
+        w_fake_sample = n_total / (2.0 * max(n_fake, 1))
+        sample_weights = [w_real_sample if label == 0 else w_fake_sample for label in client_labels]
+        
+        sampler = torch.utils.data.WeightedRandomSampler(
+            weights=sample_weights,
+            num_samples=len(sample_weights),
+            replacement=True,
+            generator=data_generator
+        )
 
         self.dataloader = DataLoader(
             dataset,
@@ -75,7 +97,6 @@ class FederatedClient:
             num_workers=0,  # Prevent excessive process spawning in federated simulation
             pin_memory=True,
             worker_init_fn=seed_worker,
-            generator=data_generator,
         )
 
         self.num_samples = len(samples)
@@ -94,6 +115,7 @@ class FederatedClient:
         temperature_kd: float = 4.0,
         round_idx: int = 0,
         total_rounds: int = 12,
+        class_weights: Optional[torch.Tensor] = None,
     ) -> OrderedDict:
         client_start = time.time()
 
@@ -116,14 +138,12 @@ class FederatedClient:
             p.requires_grad = False
 
         # Loss functions
-        cls_loss = ClassificationLoss(label_smoothing=0.05)
+        cls_loss = ClassificationLoss(label_smoothing=0.05, weight=class_weights)
         multi_kd = MultiLevelKD(temperature=temperature_kd)
         fedprox_loss = FedProxLoss(mu=mu)
 
-        # Fresh optimizer every round — never carry state across rounds.
-        # Adam's moment tensors (exp_avg, exp_avg_sq) are computed relative
-        # to a specific weight trajectory. After FedAvg those weights are
-        # replaced by a global average, making stored moments invalid.
+        # Single LR for all params — differential LR compounds with round-level cosine
+        # decay, making backbone LR near-zero by round 2.
         optimizer = torch.optim.Adam(student.parameters(), lr=effective_lr)
 
         scaler = torch.amp.GradScaler(self.device.type, enabled=self.device.type == "cuda")
@@ -147,10 +167,10 @@ class FederatedClient:
 
                 x_for = build_forensic_stack(x_rgb)
 
-                with torch.no_grad():
-                    teacher_out = self.teacher(x_rgb, x_for)
-
                 with torch.amp.autocast(self.device.type, enabled=self.device.type == "cuda"):
+                    with torch.no_grad():
+                        teacher_out = self.teacher(x_rgb, x_for)
+
                     student_out = student(x_rgb, x_for)
 
                     loss_ce = cls_loss(student_out["logits"], labels)
@@ -167,8 +187,8 @@ class FederatedClient:
                         + lambda_feat_kd * loss_feat
                     )
 
-                if mu > 0:
-                    loss += fedprox_loss(student, global_params)
+                    if mu > 0:
+                        loss += fedprox_loss(student, global_params)
 
                 if _DEBUG and batch_idx == 0 and epoch == 0:
                     check_forensic_stack(x_for, x_rgb.shape[0], x_rgb.shape[2], x_rgb.shape[3])

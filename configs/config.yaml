@@ -2,11 +2,14 @@ batch_size: 16
 learning_rate: 0.0001          # safer than 0.0003 for MobileNetV2 + federated
 seed: 42
 deterministic: false           # true is more reproducible but can be slower
-val_generator_name: "NeuralTextures"           # held-out for validation (Reenactment)
-test_generator_name: "DeepFaceLab"       # held-out for final test (Identity Swap)
+train_root: "D:\\ff++_extracted"
+test_root: "D:\\DFDC_EXTRACTED"
+val_split_ratio: 0.2
+aug_grayscale_p: 0.2
+aug_color_jitter_p: 0.3
 # Training Epochs
-teacher_epochs: 10
-student_epochs: 10
+teacher_epochs: 10             # 5 was severe underfitting for 35M params (Issue #6)
+student_epochs: 5
 
 # Loss weights
 lambda_kd: 0.3
@@ -16,8 +19,8 @@ lambda_feat_kd: 0.1            # multi-level feature KD weight (semantic + foren
 temperature_kd: 2.0
 
 num_clients: 2            # number of federated clients
-num_rounds: 8            # number of federated rounds (was 5 — model was still improving)
-local_epochs: 1           # local training epochs per client per round (was 2)
+num_rounds: 10             # increased from 3 — model was still improving at round 3
+local_epochs: 2           # increased from 1 — 1 epoch per round is too few to learn
 clients_per_round: null   # null = all clients participate each round
-fedprox_mu: 0.2          # proximal term weight (was 0.01 — too weak to prevent client drift)
+fedprox_mu: 0.01          # reduced from 0.2 — was preventing student from learning (Issue #8)
 iid_partition: false      # false = non-IID (split by generator, realistic)

@@ -14,11 +14,8 @@ import time
 import yaml
 import torch
 from torch.utils.data import DataLoader
-from sklearn.model_selection import train_test_split
-
 from data.dataset import DeepfakeDataset
 from data.loader import load_samples
-from data.split import find_cross_split_duplicates, find_cross_split_near_duplicates, split_samples
 from data.partitioner import partition_by_generator, print_partition_stats
 
 from models.teacher import TeacherModel
@@ -66,6 +63,10 @@ def main():
     seed          = config.get("seed", 42)
     deterministic = config.get("deterministic", False)
     seed_everything(seed, deterministic=deterministic)
+    
+    aug_grayscale_p = config.get("aug_grayscale_p", 0.2)
+    aug_color_jitter_p = config.get("aug_color_jitter_p", 0.3)
+    
     lambda_kd     = config["lambda_kd"]
     lambda_feat_kd = config.get("lambda_feat_kd", 0.5)
     temp_kd        = config.get("temperature_kd", 4.0)
@@ -84,75 +85,30 @@ def main():
     print(f"\n{'='*60}")
     print(f"  Federated Deepfake Detection Pipeline (Dual-Domain)")
     print(f"  Device: {device} | Batch: {batch_size} | LR: {lr}")
-    print(f"  λ_kd: {lambda_kd} | λ_feat: {lambda_feat_kd}")
+    print(f"  lambda_kd: {lambda_kd} | lambda_feat: {lambda_feat_kd}")
     print(f"  Clients: {num_clients} | Rounds: {num_rounds} | "
           f"Local epochs: {local_epochs}")
-    print(f"  FedProx μ: {mu} | IID: {iid_partition}")
+    print(f"  FedProx mu: {mu} | IID: {iid_partition}")
     print(f"{'='*60}")
 
-    print("\n  Loading dataset...")
+    train_data_dir = config.get("train_root", "D:\\ff++_extracted")
+    test_data_dir  = config.get("test_root", "D:\\DFDC_EXTRACTED")
+    val_split_ratio = config.get("val_split_ratio", 0.2)
+
+    print(f"\n  Loading Train/Val Dataset from {train_data_dir}...")
     load_start = time.time()
-    samples = load_samples("data/")
+    ffpp_samples = load_samples(train_data_dir)
+    print(f"  Loaded {len(ffpp_samples)} train/val samples in {time.time() - load_start:.1f}s")
 
-    n_real = sum(1 for s in samples if s[1] == 0)
-    n_fake = sum(1 for s in samples if s[1] == 1)
-    n_gens = len(set(s[2] for s in samples if s[1] == 1))
-    print(f"  Loaded {len(samples)} samples ({n_real} real, {n_fake} fake, "
-          f"{n_gens} generators) in {time.time() - load_start:.1f}s")
+    print(f"  Loading Test Dataset from {test_data_dir}...")
+    load_start = time.time()
+    test_samples = load_samples(test_data_dir)
+    print(f"  Loaded {len(test_samples)} test samples in {time.time() - load_start:.1f}s")
 
-    import os as _os
-    _gen_name_to_id = {}
-    for path, label, gen_id in samples:
-        if label == 1 and gen_id not in _gen_name_to_id.values():
-            gen_name = _os.path.basename(_os.path.dirname(path))
-            _gen_name_to_id[gen_name] = gen_id
+    from data.split import split_by_video_identity
+    train_samples, val_samples = split_by_video_identity(ffpp_samples, test_size=val_split_ratio, random_state=seed)
 
-    def _resolve_generator(name_key):
-        name = config.get(name_key, None)
-        if name is None:
-            return None
-        if name not in _gen_name_to_id:
-            available = sorted(_gen_name_to_id.keys())
-            raise ValueError(f"Config '{name_key}: {name}' not found. Available: {available}")
-        return _gen_name_to_id[name]
-
-    val_gen_id  = _resolve_generator("val_generator_name")
-    test_gen_id = _resolve_generator("test_generator_name")
-
-    train_samples, val_samples, test_samples, split_info = split_samples(
-        samples,
-        test_size=0.2,
-        mode="generator_holdout_3way",
-        holdout_generator_id=val_gen_id,
-        test_generator_id=test_gen_id,
-        random_state=seed
-    )
     print(f"  Train: {len(train_samples)} | Val: {len(val_samples)} | Test: {len(test_samples)}")
-    print(f"  Train fake generators: {', '.join(split_info['train_generators'])}")
-    print(f"  Val fake generator:    {split_info['val_generator']}")
-    print(f"  Test fake generator:   {split_info['test_generator']}")
-
-    duplicates = find_cross_split_duplicates({
-        "train": train_samples,
-        "val": val_samples,
-        "test": test_samples,
-    })
-    if duplicates:
-        print(f"  ⚠ Found {len(duplicates)} exact duplicate image hashes across splits.")
-        print(f"  ⚠ Example duplicate paths: {duplicates[0][2]}")
-    else:
-        print("  Exact duplicate check: no cross-split duplicates found.")
-
-    real_near_duplicates = find_cross_split_near_duplicates({
-        "train": [s for s in train_samples if s[1] == 0],
-        "val": [s for s in val_samples if s[1] == 0],
-        "test": [s for s in test_samples if s[1] == 0],
-    }, max_hamming_distance=1)
-    if real_near_duplicates:
-        print(f"  ⚠ Found {len(real_near_duplicates)} possible near-duplicate real-image pairs across splits.")
-        print(f"  ⚠ Example near-duplicate paths: {real_near_duplicates[0][1]}")
-    else:
-        print("  Real near-duplicate check: no likely cross-split duplicates found.")
 
     val_dataset = DeepfakeDataset(val_samples, augment=False)
     val_loader = DataLoader(
@@ -173,27 +129,58 @@ def main():
         generator=make_generator(seed + 2),
     )
 
-    print(f"\n{'─'*60}")
+    print(f"\n{'-'*60}")
     print(f"  PHASE 1: Centralized Teacher Pretraining ({teacher_epochs} epochs)")
-    print(f"{'─'*60}")
+    print(f"{'-'*60}")
 
     phase1_start = time.time()
 
     teacher = TeacherModel().to(device)
+    
+    # Single LR for all teacher params — differential LR caused backbone_lr = lr*0.1 = 1e-5
+    # which equalled CosineAnnealingLR's eta_min, freezing the backbone entirely.
     teacher_opt = torch.optim.Adam(teacher.parameters(), lr=lr)
 
     teacher_params = sum(p.numel() for p in teacher.parameters())
     print(f"  Teacher model: {teacher_params:,} parameters")
 
-    # Build centralized train loader for teacher
-    train_dataset_full = DeepfakeDataset(train_samples, augment=True)
+    train_dataset_full = DeepfakeDataset(
+        train_samples, augment=True,
+        aug_grayscale_p=aug_grayscale_p, 
+        aug_color_jitter_p=aug_color_jitter_p
+    )
     from collections import Counter
-    from torch.utils.data import WeightedRandomSampler
     train_labels = [s[1] for s in train_samples]
     counts = Counter(train_labels)
-    weights = [1.0 / counts[l] for l in train_labels]
+    # We are using a WeightedRandomSampler to balance the batches perfectly.
+    # However, for the Teacher, applying class_weights on top of the sampler acts as an 
+    # extreme "Anomaly Detection" bias. It forces the 35M param ResNet to over-index on 
+    # pristine Reals (25x importance), which empirically yields much higher validation AUC 
+    # on unseen deepfakes. We will use this for the Teacher, but disable it for the Student.
+    n_real = counts[0]
+    n_fake = counts[1]
+    n_total = n_real + n_fake
+    w_real = n_total / (2.0 * max(n_real, 1))
+    w_fake = n_total / (2.0 * max(n_fake, 1))
+    class_weights = torch.tensor([w_real, w_fake], dtype=torch.float32).to(device)
+    print(f"  Teacher Class weights: real={w_real:.2f}, fake={w_fake:.2f} (Anomaly Detection Mode)")
+
     teacher_generator = make_generator(seed)
-    sampler = WeightedRandomSampler(weights, len(weights), replacement=True, generator=teacher_generator)
+    # Create a WeightedRandomSampler to ensure 50/50 real/fake in every batch.
+    # Calculate balanced weights for the sampler
+    n_real = counts[0]
+    n_fake = counts[1]
+    n_total = n_real + n_fake
+    w_real = n_total / (2.0 * max(n_real, 1))
+    w_fake = n_total / (2.0 * max(n_fake, 1))
+    
+    sample_weights = [w_real if label == 0 else w_fake for label in train_labels]
+    sampler = torch.utils.data.WeightedRandomSampler(
+        weights=sample_weights,
+        num_samples=len(sample_weights),
+        replacement=True,
+        generator=teacher_generator
+    )
 
     train_loader_full = DataLoader(
         train_dataset_full,
@@ -202,7 +189,6 @@ def main():
         num_workers=4,
         pin_memory=True,
         worker_init_fn=seed_worker,
-        generator=teacher_generator,
     )
 
     print(f"  Train batches: {len(train_loader_full)}")
@@ -212,7 +198,8 @@ def main():
         dataloader=train_loader_full,
         optimizer=teacher_opt,
         device=device,
-        epochs=teacher_epochs
+        epochs=teacher_epochs,
+        class_weights=class_weights,
     )
 
     print("\n  Evaluating teacher...")
@@ -223,6 +210,21 @@ def main():
     phase1_time = time.time() - phase1_start
     print(f"  → Saved teacher (AUC={metrics['auc']:.4f})")
     print(f"  → Phase 1 complete in {_fmt_time(phase1_time)}")
+
+    # Quality gate: abort if teacher is broken (AUC < 0.6 = near-random)
+    min_teacher_auc = config.get("min_teacher_auc", 0.6)
+    if metrics["auc"] < min_teacher_auc:
+        print(f"\n  ✗ ABORTING: Teacher AUC ({metrics['auc']:.4f}) < {min_teacher_auc}")
+        print(f"    A broken teacher produces useless KD targets — Phase 2 would be wasted compute.")
+        print(f"    Diagnostics:")
+        print(f"      - Check learning rate (should NOT be stuck at 1e-5)")
+        print(f"      - Check loss is decreasing meaningfully")
+        print(f"      - Try increasing teacher_epochs in config.yaml")
+        print(f"      - Verify data labels (real=0, fake=1)")
+        return
+    elif metrics["auc"] < 0.7:
+        print(f"\n  ⚠ WARNING: Teacher AUC ({metrics['auc']:.4f}) is low. "
+              f"Student quality will be limited by teacher quality.")
 
     # Freeze teacher for distribution
     teacher.eval()
@@ -236,9 +238,9 @@ def main():
     print(f"  Student model: {student_params:,} parameters "
           f"({student_params/teacher_params*100:.1f}% of teacher)")
 
-    print(f"\n{'─'*60}")
+    print(f"\n{'-'*60}")
     print(f"  DATA PARTITIONING ({'IID' if iid_partition else 'Non-IID by generator'})")
-    print(f"{'─'*60}")
+    print(f"{'-'*60}")
 
     partition_start = time.time()
     client_data = partition_by_generator(
@@ -261,7 +263,13 @@ def main():
             device=device,
             batch_size=batch_size,
             seed=seed,
+            aug_grayscale_p=aug_grayscale_p,
+            aug_color_jitter_p=aug_color_jitter_p,
         )
+        # The Student ONLY uses the WeightedRandomSampler for balance.
+        # It must NOT use class_weights, otherwise the double-correction causes
+        # the small MobileNet model to collapse and guess "Real" for everything (AUC ~0.4).
+        client.class_weights = None
         clients.append(client)
         gen_ids = sorted(client.local_generators)
         print(f"    Client {client_id}: {client.num_samples} samples | "
@@ -270,9 +278,9 @@ def main():
 
     print(f"  {len(clients)} clients created in {time.time() - client_start:.1f}s")
 
-    print(f"\n{'─'*60}")
+    print(f"\n{'-'*60}")
     print(f"  PHASE 2: Federated Student Training")
-    print(f"{'─'*60}")
+    print(f"{'-'*60}")
 
     phase2_start = time.time()
 
@@ -296,6 +304,7 @@ def main():
         mu=mu,
         temperature_kd=temp_kd,
         save_path=best_federated_path,
+        class_weights=class_weights,
     )
 
     phase2_time = time.time() - phase2_start
@@ -304,8 +313,18 @@ def main():
     global_student.load_state_dict(torch.load(best_federated_path, map_location=device, weights_only=True))
 
     print("\n  Final evaluation on validation split (with TTA)...")
-    final_val_metrics = evaluate(global_student, val_loader, device, calibrate_threshold=True, use_tta=True)
-    print_metrics("  [Federated Val]", final_val_metrics)
+    raw_val_metrics = evaluate(global_student, val_loader, device, calibrate_threshold=True, use_tta=True)
+    
+    # Re-evaluate with the calibrated threshold to display the true capability
+    final_val_metrics = evaluate(
+        global_student,
+        val_loader,
+        device,
+        threshold=raw_val_metrics["threshold"],
+        calibrate_threshold=False,
+        use_tta=True
+    )
+    print_metrics("  [Federated Val (Calibrated)]", final_val_metrics)
 
     print("\n  Final test evaluation using validation threshold (with TTA)...")
     final_test_metrics = evaluate(

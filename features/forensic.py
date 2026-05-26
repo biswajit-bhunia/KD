@@ -44,6 +44,13 @@ def compute_srm(image):
     x_gray = x.mean(dim=1, keepdim=True)  # (B,1,H,W)
     out = F.conv2d(x_gray, kernels, padding=1)  # (B,3,H,W)
 
+    # Normalise to zero mean / unit std per sample to match FFT normalization.
+    # Without this, SRM channels have unbounded magnitude while FFT channels
+    # are standardized, creating a scale mismatch in the 6-ch forensic stack.
+    mean = out.mean(dim=(-2, -1), keepdim=True)
+    std  = out.std(dim=(-2, -1), keepdim=True)
+    out  = (out - mean) / (std + 1e-8)
+
     return out.squeeze(0) if image.dim() == 3 else out
 
 # FFT magnitude
@@ -57,7 +64,7 @@ def compute_fft(image):
     # Per-channel FFT (B, 3, H, W) — each colour channel has distinct
     # frequency characteristics under deepfake manipulation
     fft = torch.fft.fft2(x)
-    fft_shift = torch.fft.fftshift(fft)
+    fft_shift = torch.fft.fftshift(fft, dim=(-2, -1))
 
     magnitude = torch.log(1 + torch.abs(fft_shift))  # log-scale stabilise
 
