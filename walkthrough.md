@@ -349,49 +349,35 @@ ___
 
 1. **Server initializes** Global Student model $\mathcal{S}_0$
 2. **for** round $r = 1, 2, \dots, R$ **do**
-3. &nbsp;&nbsp;&nbsp;&nbsp; Server selects a subset of clients $\mathcal{S}_r \subseteq \mathcal{K}$
-4. &nbsp;&nbsp;&nbsp;&nbsp; Server broadcasts global weights $w_r$ to all clients $k \in \mathcal{S}_r$
-5. &nbsp;&nbsp;&nbsp;&nbsp; 
-6. &nbsp;&nbsp;&nbsp;&nbsp; **// Local Training Phase**
-7. &nbsp;&nbsp;&nbsp;&nbsp; **for each** client $k \in \mathcal{S}_r$ **in parallel do**
-8. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; $w_{r,k} \leftarrow$ **ClientUpdate**$(k, w_r, \mathcal{T})$
-9. &nbsp;&nbsp;&nbsp;&nbsp; **end for**
-10. &nbsp;&nbsp;&nbsp;&nbsp; 
-11. &nbsp;&nbsp;&nbsp;&nbsp; **// Server Aggregation Phase (FedAvg logic)**
-12. &nbsp;&nbsp;&nbsp;&nbsp; $N \leftarrow \sum_{k \in \mathcal{S}_r} n_k$ *(Total number of samples across all active clients)*
-13. &nbsp;&nbsp;&nbsp;&nbsp; $w_{r+1} \leftarrow \sum_{k \in \mathcal{S}_r} \frac{n_k}{N} w_{r,k}$
-14. &nbsp;&nbsp;&nbsp;&nbsp; 
-15. &nbsp;&nbsp;&nbsp;&nbsp; Evaluate $w_{r+1}$ on Validation Set
-16. **end for**
+   - Server selects a subset of clients $\mathcal{S}_r \subseteq \mathcal{K}$
+   - Server broadcasts global weights $w_r$ to all clients $k \in \mathcal{S}_r$
+   - **Local Training Phase**:
+     - **for each** client $k \in \mathcal{S}_r$ **in parallel do**
+       - $w_{r,k} \leftarrow$ **ClientUpdate**$(k, w_r, \mathcal{T})$
+   - **Server Aggregation Phase (FedAvg logic)**:
+     - $N \leftarrow \sum_{k \in \mathcal{S}_r} n_k$ *(Total number of samples across all active clients)*
+     - $w_{r+1} \leftarrow \sum_{k \in \mathcal{S}_r} \frac{n_k}{N} w_{r,k}$
+     - Evaluate $w_{r+1}$ on Validation Set
+
 ___
 **function** **ClientUpdate**$(k, w_{global}, \mathcal{T})$
-17. &nbsp;&nbsp;&nbsp;&nbsp; Initialize local student model $\mathcal{S}_k$ with weights $w_{global}$
-18. &nbsp;&nbsp;&nbsp;&nbsp; **for** local epoch $e = 1$ to $E$ **do**
-19. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **for each** batch $(X_{rgb}, y_{true})$ in local dataset $\mathcal{D}_k$ **do**
-20. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-21. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **// 1. Data Preparation**
-22. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; $X_{for} \leftarrow$ compute_SRM_and_FFT($X_{rgb}$)
-23. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-24. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **// 2. Teacher Forward Pass (Frozen, No Gradients)**
-25. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; $Z_{teacher\_embed}, \_ \leftarrow \mathcal{T}(X_{rgb}, X_{for})$
-26. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-27. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **// 3. Student Forward Pass**
-28. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; $Z_{student\_embed}, Y_{pred\_logits} \leftarrow \mathcal{S}_k(X_{rgb}, X_{for})$
-29. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-30. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **// 4. Compute Losses**
-31. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; $\mathcal{L}_{CE} \leftarrow \text{CrossEntropy}(Y_{pred\_logits}, y_{true})$
-32. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; $\mathcal{L}_{KD} \leftarrow \left\| \frac{Z_{student\_embed}}{\|Z_{student\_embed}\|_2} - \frac{Z_{teacher\_embed}}{\|Z_{teacher\_embed}\|_2} \right\|_2^2$
-33. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; $\mathcal{L}_{Prox} \leftarrow \frac{\mu}{2} \left\| \mathcal{S}_k.weights - w_{global} \right\|_2^2$
-34. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-35. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; $\mathcal{L}_{Total} \leftarrow \mathcal{L}_{CE} + \lambda \mathcal{L}_{KD} + \mathcal{L}_{Prox}$
-36. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-37. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **// 5. Backpropagation**
-38. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; $\mathcal{S}_k.weights \leftarrow \mathcal{S}_k.weights - \eta \nabla \mathcal{L}_{Total}$
-39. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-40. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **end for**
-41. &nbsp;&nbsp;&nbsp;&nbsp; **end for**
-42. &nbsp;&nbsp;&nbsp;&nbsp; **return** $\mathcal{S}_k.weights$
-43. **end function**
+1. Initialize local student model $\mathcal{S}_k$ with weights $w_{global}$
+2. **for** local epoch $e = 1$ to $E$ **do**
+   - **for each** batch $(X_{rgb}, y_{true})$ in local dataset $\mathcal{D}_k$ **do**
+     - **1. Data Preparation**:
+       - $X_{for} \leftarrow$ compute_SRM_and_FFT($X_{rgb}$)
+     - **2. Teacher Forward Pass (Frozen, No Gradients)**:
+       - $Z_{teacher\_embed}, \_ \leftarrow \mathcal{T}(X_{rgb}, X_{for})$
+     - **3. Student Forward Pass**:
+       - $Z_{student\_embed}, Y_{pred\_logits} \leftarrow \mathcal{S}_k(X_{rgb}, X_{for})$
+     - **4. Compute Losses**:
+       - $\mathcal{L}_{CE} \leftarrow \text{CrossEntropy}(Y_{pred\_logits}, y_{true})$
+       - $\mathcal{L}_{KD} \leftarrow \left\| \frac{Z_{student\_embed}}{\|Z_{student\_embed}\|_2} - \frac{Z_{teacher\_embed}}{\|Z_{teacher\_embed}\|_2} \right\|_2^2$
+       - $\mathcal{L}_{Prox} \leftarrow \frac{\mu}{2} \left\| \mathcal{S}_k.weights - w_{global} \right\|_2^2$
+       - $\mathcal{L}_{Total} \leftarrow \mathcal{L}_{CE} + \lambda \mathcal{L}_{KD} + \mathcal{L}_{Prox}$
+     - **5. Backpropagation**:
+       - $\mathcal{S}_k.weights \leftarrow \mathcal{S}_k.weights - \eta \nabla \mathcal{L}_{Total}$
+3. **return** $\mathcal{S}_k.weights$
 ___
 
 **Math of Federation (FedAvg):**
