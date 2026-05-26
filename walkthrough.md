@@ -342,37 +342,69 @@ graph TD
 
 Below is the formal step-by-step algorithm detailing exactly how the Federated Knowledge Distillation loop operates.
 
-```math
+$$
 \begin{array}{l}
-\textbf{Algorithm 1: } \text{Dual-Domain Federated Knowledge Distillation (FedProx)} \\
 \hline
-\textbf{Input: } \text{Set of clients } \mathcal{K}\text{, Server, Frozen Teacher model } \mathcal{T} \\
-\textbf{Hyperparameters: } \text{Rounds } R\text{, Local epochs } E\text{, LR } \eta\text{, FedProx } \mu\text{, Feature KD } \lambda \\
-\text{1: Server initializes Global Student model } \mathcal{S}_0 \\
-\text{2: } \textbf{for } \text{round } r = 1, 2, \dots, R \textbf{ do} \\
-\quad \text{3: Server selects a subset of clients } \mathcal{S}_r \subseteq \mathcal{K} \\
-\quad \text{4: Server broadcasts global weights } w_r \text{ to all clients } k \in \mathcal{S}_r \\
-\quad \text{5: } \textbf{for each } \text{client } k \in \mathcal{S}_r \textbf{ in parallel do} \\
-\quad \quad \text{6: } w_{r,k} \leftarrow \text{ClientUpdate}(k, w_r, \mathcal{T}) \\
-\quad \text{7: } N \leftarrow \sum_{k \in \mathcal{S}_r} n_k \quad \text{(Total samples across active clients)} \\
-\quad \text{8: } w_{r+1} \leftarrow \sum_{k \in \mathcal{S}_r} \frac{n_k}{N} w_{r,k} \quad \text{(FedAvg)} \\
-\quad \text{9: Evaluate } w_{r+1} \text{ on Validation Set} \\
+\\
+\textbf{Algorithm 1: Dual-Domain Federated Knowledge Distillation (FedProx)}\\
+\\
 \hline
-\textbf{function } \text{ClientUpdate}(k, w_{global}, \mathcal{T}) \\
-\text{1: Initialize local student model } \mathcal{S}_k \text{ with weights } w_{global} \\
-\text{2: } \textbf{for } \text{local epoch } e = 1 \text{ to } E \textbf{ do} \\
-\quad \text{3: } \textbf{for each } \text{batch } (X_{rgb}, y_{true}) \in \mathcal{D}_k \textbf{ do} \\
-\quad \quad \text{4: } X_{for} \leftarrow \text{compute\_SRM\_and\_FFT}(X_{rgb}) \\
-\quad \quad \text{5: } Z_{teacher}, \_ \leftarrow \mathcal{T}(X_{rgb}, X_{for}) \\
-\quad \quad \text{6: } Z_{student}, Y_{logits} \leftarrow \mathcal{S}_k(X_{rgb}, X_{for}) \\
-\quad \quad \text{7: } \mathcal{L}_{CE} \leftarrow \text{CrossEntropy}(Y_{logits}, y_{true}) \\
-\quad \quad \text{8: } \mathcal{L}_{KD} \leftarrow \left\| \frac{Z_{student}}{\|Z_{student}\|_2} - \frac{Z_{teacher}}{\|Z_{teacher}\|_2} \right\|_2^2 \\
-\quad \quad \text{9: } \mathcal{L}_{Prox} \leftarrow \frac{\mu}{2} \left\| \mathcal{S}_k.weights - w_{global} \right\|_2^2 \\
-\quad \quad \text{10: } \mathcal{L}_{Total} \leftarrow \mathcal{L}_{CE} + \lambda \mathcal{L}_{KD} + \mathcal{L}_{Prox} \\
-\quad \quad \text{11: } \mathcal{S}_k.weights \leftarrow \mathcal{S}_k.weights - \eta \nabla \mathcal{L}_{Total} \\
-\text{12: } \textbf{return } \mathcal{S}_k.weights
+\\
+\textbf{Input: } \text{Client set } \mathcal{K},\ \text{Server},\ \text{Frozen Teacher } T \\
+\textbf{Hyperparameters: } R,\ E,\ \eta,\ \mu,\ \lambda \\
+\\
+\textbf{1:} \quad \text{Server initializes Global Student } S_0 \text{ with weights } w_0 \\
+\textbf{2:} \quad \textbf{for } r = 1, 2, \ldots, R \ \textbf{do} \\
+\textbf{3:} \quad\quad \mathcal{S}_r \subseteq \mathcal{K} \quad \triangleright\ \text{Select client subset} \\
+\textbf{4:} \quad\quad \text{Broadcast } w_r \rightarrow \text{all } k \in \mathcal{S}_r \\
+\\
+\textbf{5:} \quad\quad \triangleright\ \textit{Local Training Phase} \\
+\textbf{6:} \quad\quad \textbf{for each } k \in \mathcal{S}_r \text{ in parallel } \textbf{do} \\
+\textbf{7:} \quad\quad\quad w_{r,k} \leftarrow \texttt{ClientUpdate}(k,\ w_r,\ T) \\
+\textbf{8:} \quad\quad \textbf{end for} \\
+\\
+\textbf{9:} \quad\quad \triangleright\ \textit{Server Aggregation Phase} \\
+\textbf{10:} \quad\quad N \leftarrow \textstyle\sum_{k \in \mathcal{S}_r} n_k \\
+\textbf{11:} \quad\quad w_{r+1} \leftarrow \sum_{k \in \mathcal{S}_r} \dfrac{n_k}{N} \cdot w_{r,k} \\
+\\
+\textbf{12:} \quad\quad \text{Evaluate } w_{r+1} \text{ on Validation Set} \\
+\textbf{13:} \quad \textbf{end for} \\
+\\
+\hline
+\\
+\textbf{function } \texttt{ClientUpdate}(k,\ w_{\text{global}},\ T) \\
+\\
+\hline
+\\
+\textbf{1:} \quad \text{Init local student } S_k \leftarrow w_{\text{global}} \\
+\textbf{2:} \quad \textbf{for } e = 1 \text{ to } E \ \textbf{do} \\
+\textbf{3:} \quad\quad \textbf{for each batch } (X_{\text{rgb}},\ y_{\text{true}}) \in \mathcal{D}_k \ \textbf{do} \\
+\\
+\textbf{4:} \quad\quad\quad \triangleright\ \textit{Step 1 — Data Preparation} \\
+\textbf{5:} \quad\quad\quad X_{\text{for}} \leftarrow \texttt{SRM}(X_{\text{rgb}}) \oplus \texttt{FFT}(X_{\text{rgb}}) \\
+\\
+\textbf{6:} \quad\quad\quad \triangleright\ \textit{Step 2 — Teacher Forward Pass}\ (\nabla = 0) \\
+\textbf{7:} \quad\quad\quad Z_{\text{teacher}},\ \_ \leftarrow T(X_{\text{rgb}},\ X_{\text{for}}) \\
+\\
+\textbf{8:} \quad\quad\quad \triangleright\ \textit{Step 3 — Student Forward Pass} \\
+\textbf{9:} \quad\quad\quad Z_{\text{student}},\ \hat{Y} \leftarrow S_k(X_{\text{rgb}},\ X_{\text{for}}) \\
+\\
+\textbf{10:} \quad\quad\quad \triangleright\ \textit{Step 4 — Compute Losses} \\
+\textbf{11:} \quad\quad\quad \mathcal{L}_{\text{CE}} \leftarrow \texttt{CrossEntropy}(\hat{Y},\ y_{\text{true}}) \\
+\textbf{12:} \quad\quad\quad \mathcal{L}_{\text{KD}} \leftarrow \left\| \dfrac{Z_{\text{student}}}{\|Z_{\text{student}}\|_2} - \dfrac{Z_{\text{teacher}}}{\|Z_{\text{teacher}}\|_2} \right\|^2 \\
+\textbf{13:} \quad\quad\quad \mathcal{L}_{\text{Prox}} \leftarrow \dfrac{\mu}{2} \left\| w_k - w_{\text{global}} \right\|^2 \\
+\textbf{14:} \quad\quad\quad \mathcal{L}_{\text{Total}} \leftarrow \mathcal{L}_{\text{CE}}\ +\ \lambda\,\mathcal{L}_{\text{KD}}\ +\ \mathcal{L}_{\text{Prox}} \\
+\\
+\textbf{15:} \quad\quad\quad \triangleright\ \textit{Step 5 — Backpropagation} \\
+\textbf{16:} \quad\quad\quad w_k \leftarrow w_k - \eta\,\nabla_{w_k}\,\mathcal{L}_{\text{Total}} \\
+\\
+\textbf{17:} \quad\quad \textbf{end for} \\
+\textbf{18:} \quad \textbf{end for} \\
+\textbf{19:} \quad \textbf{return } w_k \\
+\\
+\hline
 \end{array}
-```
+$$
 
 **Math of Federation (FedAvg):**
 ```math
