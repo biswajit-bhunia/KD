@@ -305,8 +305,6 @@ subgraph Teacher["Teacher Network"]
         direction TB
         T_Gate["Gated Fusion"]
         T_Emb["Teacher Embedding (256d)"]
-        T_Pre["Pre-Dropout Embedding"]
-        T_Drop["Dropout 0.5"]
         T_Cls["Linear 256 → 2"]
         T_Log["Teacher Logits"]
     end
@@ -326,8 +324,6 @@ subgraph Student["Student Network"]
         direction TB
         S_Gate["Gated Fusion"]
         S_Emb["Student Embedding (256d)"]
-        S_Pre["Pre-Dropout Embedding"]
-        S_Drop["Dropout 0.4"]
         S_Cls["Linear 256 → 2"]
         S_Log["Student Logits"]
     end
@@ -347,9 +343,7 @@ FOR --> S_For
 T_Sem --> T_Gate
 T_For --> T_Gate
 T_Gate --> T_Emb
-T_Emb --> T_Pre
-T_Emb --> T_Drop
-T_Drop --> T_Cls
+T_Emb --> T_Cls
 T_Cls --> T_Log
 
 %% =========================
@@ -358,9 +352,7 @@ T_Cls --> T_Log
 S_Sem --> S_Gate
 S_For --> S_Gate
 S_Gate --> S_Emb
-S_Emb --> S_Pre
-S_Emb --> S_Drop
-S_Drop --> S_Cls
+S_Emb --> S_Cls
 S_Cls --> S_Log
 
 %% =========================
@@ -372,8 +364,8 @@ subgraph Distillation["Knowledge Distillation"]
     KD_Log["Logit Distillation<br/>KL Divergence"]
 end
 
-T_Pre -. "teacher embedding" .-> KD_Feat
-S_Pre -. "student embedding" .-> KD_Feat
+T_Emb -. "teacher embedding" .-> KD_Feat
+S_Emb -. "student embedding" .-> KD_Feat
 T_Log -. "teacher logits" .-> KD_Log
 S_Log -. "student logits" .-> KD_Log
 ```
