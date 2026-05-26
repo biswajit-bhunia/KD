@@ -91,14 +91,19 @@ def main():
     print(f"  FedProx mu: {mu} | IID: {iid_partition}")
     print(f"{'='*60}")
 
-    train_data_dir = config.get("train_root", "D:\\ff++_extracted")
+    train_roots = config.get("train_roots", [config.get("train_root", "D:\\ff++_extracted")])
     test_data_dir  = config.get("test_root", "D:\\DFDC_EXTRACTED")
     val_split_ratio = config.get("val_split_ratio", 0.2)
 
-    print(f"\n  Loading Train/Val Dataset from {train_data_dir}...")
+    ffpp_samples = []
     load_start = time.time()
-    ffpp_samples = load_samples(train_data_dir)
-    print(f"  Loaded {len(ffpp_samples)} train/val samples in {time.time() - load_start:.1f}s")
+    for tr in train_roots:
+        print(f"\n  Loading Train/Val Dataset from {tr}...")
+        tr_samples = load_samples(tr)
+        print(f"  Loaded {len(tr_samples)} samples from {tr}")
+        ffpp_samples.extend(tr_samples)
+    
+    print(f"  Total Train/Val samples loaded: {len(ffpp_samples)} in {time.time() - load_start:.1f}s")
 
     print(f"  Loading Test Dataset from {test_data_dir}...")
     load_start = time.time()
@@ -304,7 +309,7 @@ def main():
         mu=mu,
         temperature_kd=temp_kd,
         save_path=best_federated_path,
-        class_weights=class_weights,
+        class_weights=None,   # Student uses WeightedRandomSampler for balance; no double-correction
     )
 
     phase2_time = time.time() - phase2_start

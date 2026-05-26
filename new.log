@@ -3,422 +3,684 @@ PS C:\Users\sayan\OneDrive\Desktop\federated-deepfake> python .\main_federated.p
 ============================================================
   Federated Deepfake Detection Pipeline (Dual-Domain)
   Device: cuda | Batch: 16 | LR: 0.0001
-  λ_kd: 0.3 | λ_feat: 0.1
-  Clients: 2 | Rounds: 8 | Local epochs: 1
-  FedProx μ: 0.2 | IID: False
+  lambda_kd: 0.0 | lambda_feat: 0.5
+  Clients: 2 | Rounds: 10 | Local epochs: 2
+  FedProx mu: 0.01 | IID: False
 ============================================================
 
-  Loading dataset...
-  Loaded 2317 samples (999 real, 1318 fake, 7 generators) in 0.5s
-  Train: 1574 | Val: 369 | Test: 370
-  Train fake generators: DALL-E, DDPM, PNDM, Stable Diffusion, StyleGAN
-  Val fake generator:    NeuralTextures
-  Test fake generator:   DeepFaceLab
-  Exact duplicate check: no cross-split duplicates found.
-  Real near-duplicate check: no likely cross-split duplicates found.
+  Loading Train/Val Dataset from D:\ff++_extracted...
+  Loaded 6000 samples from D:\ff++_extracted
 
-────────────────────────────────────────────────────────────
+  Loading Train/Val Dataset from C:\Users\sayan\OneDrive\Desktop\federated-deepfake\data...
+  Loaded 2317 samples from C:\Users\sayan\OneDrive\Desktop\federated-deepfake\data
+  Total Train/Val samples loaded: 8317 in 0.4s
+  Loading Test Dataset from D:\DFDC_EXTRACTED...
+  Loaded 1500 test samples in 0.1s
+  Split by source identity: 2417 source videos -> 1933 train, 484 val
+  Train: 6889 frames | Val: 1428 frames
+  Train: 6889 | Val: 1428 | Test: 1500
+
+------------------------------------------------------------
   PHASE 1: Centralized Teacher Pretraining (10 epochs)
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
   Teacher model: 35,481,666 parameters
-  Train batches: 99
-  [Teacher] Epoch 1/10 done | Loss: 0.4529 | LR: 0.000098 | Time: 2m 18s | ETA: 20m 42s
-  [Teacher] Epoch 2/10 done | Loss: 0.3731 | LR: 0.000091 | Time: 2m 3s | ETA: 16m 27s
-  [Teacher] Epoch 3/10 done | Loss: 0.3175 | LR: 0.000081 | Time: 1m 43s | ETA: 12m 7s
+  Teacher Class weights: real=2.10, fake=0.66 (Anomaly Detection Mode)
+  Train batches: 431
+  [Teacher] Epoch 1/10 done | Loss: 0.5923 | LR: 0.000100 | Time: 3m 16s | ETA: 29m 32s
+  [Teacher] Epoch 2/10 done | Loss: 0.5039 | LR: 0.000100 | Time: 2m 37s | ETA: 20m 58s
+  [Teacher] Epoch 3/10 done | Loss: 0.4499 | LR: 0.000100 | Time: 2m 45s | ETA: 19m 20s
   ✓ [Teacher] Health check passed (Epoch 3) — LR, loss, and components look normal.
 
-  [Teacher] Epoch 4/10 done | Loss: 0.2963 | LR: 0.000069 | Time: 1m 40s | ETA: 10m 2s
-  [Teacher] Epoch 5/10 done | Loss: 0.2706 | LR: 0.000055 | Time: 1m 21s | ETA: 6m 45s
-  [Teacher] Epoch 6/10 done | Loss: 0.2371 | LR: 0.000041 | Time: 1m 20s | ETA: 5m 22s
+  [Teacher] Epoch 4/10 done | Loss: 0.4211 | LR: 0.000100 | Time: 2m 19s | ETA: 13m 54s
+  [Teacher] Epoch 5/10 done | Loss: 0.4066 | LR: 0.000100 | Time: 2m 11s | ETA: 10m 59s
+  [Teacher] Epoch 6/10 done | Loss: 0.3805 | LR: 0.000100 | Time: 2m 11s | ETA: 8m 46s
   ✓ [Teacher] Health check passed (Epoch 6) — LR, loss, and components look normal.
 
-  [Teacher] Epoch 7/10 done | Loss: 0.2335 | LR: 0.000029 | Time: 1m 36s | ETA: 4m 49s
-  [Teacher] Epoch 8/10 done | Loss: 0.2237 | LR: 0.000019 | Time: 1m 31s | ETA: 3m 3s
-  [Teacher] Epoch 9/10 done | Loss: 0.2150 | LR: 0.000012 | Time: 1m 25s | ETA: 1m 25s
+  [Teacher] Epoch 7/10 done | Loss: 0.3756 | LR: 0.000100 | Time: 2m 10s | ETA: 6m 32s
+  [Teacher] Epoch 8/10 done | Loss: 0.3637 | LR: 0.000100 | Time: 2m 11s | ETA: 4m 22s
+  [Teacher] Epoch 9/10 done | Loss: 0.3555 | LR: 0.000100 | Time: 2m 8s | ETA: 2m 8s
   ✓ [Teacher] Health check passed (Epoch 9) — LR, loss, and components look normal.
 
-  [Teacher] Epoch 10/10 done | Loss: 0.2129 | LR: 0.000010 | Time: 1m 39s | ETA: 0.0s
-  [Teacher] Training complete in 16m 40s
+  [Teacher] Epoch 10/10 done | Loss: 0.3508 | LR: 0.000100 | Time: 2m 9s | ETA: 0.0s
+  [Teacher] Training complete in 24m 3s
 
   Evaluating teacher...
-    [Eval] Batch 12/24 (50%) | Elapsed: 55.5s
-    [Eval] Batch 24/24 (100%) | Elapsed: 58.6s
-    [Eval] Complete (369 samples in 60.5s)
-    [Eval] Threshold: 0.070 (val-calibrated; default 0.5)  AUC is threshold-free
-    [Eval] At t=0.5:   Acc=0.6856 | Rec=0.3765 | F1=0.5246
-    [Eval] At t=0.070: Acc=0.8184 | Rec=0.8000 | F1=0.8024 ← using this
-  [Teacher] | Acc: 0.8184 | Prec: 0.8047 | Rec: 0.8000 | F1: 0.8024 | AUC: 0.8803
-  → Saved teacher (AUC=0.8803)
-  → Phase 1 complete in 17m 49s
+    [Eval] Batch 45/90 (50%) | Elapsed: 32.5s
+    [Eval] Batch 90/90 (100%) | Elapsed: 40.0s
+    [Eval] Complete (1428 frames -> 564 videos in 41.2s)
+    [Eval] Eval Threshold: 0.444 (calibrated)
+
+    [Eval] --- Per-Generator Breakdown (Video-Level) ---
+    [Eval] StyleGAN        | Acc: 0.9056 | F1: 0.6207 | AUC: 0.9636
+    [Eval] Face2Face       | Acc: 0.9167 | F1: 0.6275 | AUC: 0.9876
+    [Eval] FaceShifter     | Acc: 0.9167 | F1: 0.6275 | AUC: 0.9805
+    [Eval] Deepfakes       | Acc: 0.9123 | F1: 0.6000 | AUC: 0.9688
+    [Eval] DALL-E          | Acc: 0.9258 | F1: 0.8224 | AUC: 0.9974
+    [Eval] PNDM            | Acc: 0.8606 | F1: 0.5679 | AUC: 0.8439
+    [Eval] FaceSwap        | Acc: 0.9035 | F1: 0.5417 | AUC: 0.9564
+    [Eval] Stable Diffusion | Acc: 0.9240 | F1: 0.8000 | AUC: 0.9938
+    [Eval] DeepFaceLab     | Acc: 0.9069 | F1: 0.7294 | AUC: 0.9681
+    [Eval] NeuralTextures  | Acc: 0.9239 | F1: 0.8552 | AUC: 0.9884
+    [Eval] DDPM            | Acc: 0.9151 | F1: 0.8000 | AUC: 0.9771
+  [Teacher] | Acc: 0.9096 | Prec: 0.9440 | Rec: 0.9091 | F1: 0.9262 | AUC: 0.9663
+  → Saved teacher (AUC=0.9663)
+  → Phase 1 complete in 24m 48s
 
   Initializing student model...
   Student model: 4,304,066 parameters (12.1% of teacher)
 
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
   DATA PARTITIONING (Non-IID by generator)
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
 
 === Data Partition Summary ===
-  Client 0: 843 samples (298 real, 545 fake) | generators: [6, 7, 8]
-    breakdown: g6:216 | g7:203 | g8:126
-  Client 1: 731 samples (299 real, 432 fake) | generators: [1, 2]
-    breakdown: g1:207 | g2:225
+  Client 0: 3136 samples (875 real, 2261 fake) | generators: [DALL-E, DeepFaceLab, Face2Face, FaceSwap, PNDM, StyleGAN]
+    breakdown: gDALL-E:163 | gDeepFaceLab:136 | gFace2Face:840 | gFaceSwap:840 | gPNDM:177 | gStyleGAN:105
+  Client 1: 3753 samples (768 real, 2985 fake) | generators: [DDPM, Deepfakes, FaceShifter, NeuralTextures, Stable Diffusion]
+    breakdown: gDDPM:178 | gDeepfakes:840 | gFaceShifter:840 | gNeuralTextures:962 | gStable Diffusion:165
 
-  Partitioned in 0.00s
+  Partitioned in 0.05s
 
   Creating federated clients...
-    Client 0: 843 samples | 3 generators [6, 7, 8] | 53 batches
-    Client 1: 731 samples | 2 generators [1, 2] | 46 batches
+    Client 0: 3136 samples | 6 generators ['DALL-E', 'DeepFaceLab', 'Face2Face', 'FaceSwap', 'PNDM', 'StyleGAN'] | 196 batches
+    Client 1: 3753 samples | 5 generators ['DDPM', 'Deepfakes', 'FaceShifter', 'NeuralTextures', 'Stable Diffusion'] | 235 batches
   2 clients created in 0.0s
 
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
   PHASE 2: Federated Student Training
-────────────────────────────────────────────────────────────
+------------------------------------------------------------
 
 ============================================================
   Federated Training Configuration
-  Rounds: 8 | Clients/round: 2/2
-  Local epochs: 1 | LR: 0.0001
-  FedProx μ: 0.2 | λ_kd: 0.3 | λ_feat: 0.1
+  Rounds: 10 | Clients/round: 2/2
+  Local epochs: 2 | LR: 0.0001
+  FedProx μ: 0.01 | λ_kd: 0.0 | λ_feat: 0.5
 ============================================================
 
 
-──────────────────────────────────────────────────
-  ROUND 1/8
-──────────────────────────────────────────────────
-  Selected clients: [0, 1] (1574 total samples)
+--------------------------------------------------
+  ROUND 1/10
+--------------------------------------------------
+  Selected clients: [0, 1] (6889 total samples)
 
-    ┌─ Client 0 (1/2) | 843 samples | 3 generators
+    >- Client 0 (1/2) | 3136 samples | 6 generators
       [Client 0] LR this round: 0.000100
-      [Client 0] Epoch 1/1 | Loss: 0.7582 | Time: 55.9s | ETA: 0.0s
-      [Client 0] Local training done in 56.1s
-    └─ Client 0 complete
+      [Client 0] Epoch 1/2 | Loss: 0.6891 | Time: 1m 24s | ETA: 1m 24s
+      [Client 0] Epoch 2/2 | Loss: 0.6626 | Time: 1m 20s | ETA: 0.0s
+      [Client 0] Local training done in 2m 45s
+    <- Client 0 complete
 
-    ┌─ Client 1 (2/2) | 731 samples | 2 generators
+    >- Client 1 (2/2) | 3753 samples | 5 generators
       [Client 1] LR this round: 0.000100
-      [Client 1] Epoch 1/1 | Loss: 0.6671 | Time: 34.2s | ETA: 0.0s
-      [Client 1] Local training done in 34.4s
-    └─ Client 1 complete
-
-  Aggregating 2 client updates...
-  Aggregation done in 0.09s
-
-  Evaluating global model...
-    [Eval] Batch 12/24 (50%) | Elapsed: 28.7s
-    [Eval] Batch 24/24 (100%) | Elapsed: 30.3s
-    [Eval] Complete (369 samples in 31.9s)
-    [Eval] Threshold: 0.282 (val-calibrated; default 0.5)  AUC is threshold-free
-    [Eval] At t=0.5:   Acc=0.5637 | Rec=0.0529 | F1=0.1006
-    [Eval] At t=0.282: Acc=0.9024 | Rec=0.9765 | F1=0.9022 ← using this
-
-  ╔══ Round 1/8 Results ══
-  ║ Accuracy:  0.9024
-  ║ Precision: 0.8384
-  ║ Recall:    0.9765
-  ║ F1:        0.9022
-  ║ AUC:       0.9704
-  ╟──
-  ║ Round time: 2m 2s | Total elapsed: 2m 2s | ETA: 14m 20s
-  ╚══
-  ★ New best model! AUC: 0.9704 → saved to checkpoints/student_federated_best.pth
-
-──────────────────────────────────────────────────
-  ROUND 2/8
-──────────────────────────────────────────────────
-  Selected clients: [0, 1] (1574 total samples)
-
-    ┌─ Client 0 (1/2) | 843 samples | 3 generators
-      [Client 0] LR this round: 0.000097
-      [Client 0] Epoch 1/1 | Loss: 0.6753 | Time: 27.3s | ETA: 0.0s
-      [Client 0] Local training done in 27.5s
-    └─ Client 0 complete
-
-    ┌─ Client 1 (2/2) | 731 samples | 2 generators
-      [Client 1] LR this round: 0.000097
-      [Client 1] Epoch 1/1 | Loss: 0.4597 | Time: 23.8s | ETA: 0.0s
-      [Client 1] Local training done in 23.9s
-    └─ Client 1 complete
-
-  Aggregating 2 client updates...
-  Aggregation done in 0.06s
-
-  Evaluating global model...
-    [Eval] Batch 12/24 (50%) | Elapsed: 25.2s
-    [Eval] Batch 24/24 (100%) | Elapsed: 26.5s
-    [Eval] Complete (369 samples in 28.1s)
-    [Eval] Threshold: 0.539 (val-calibrated; default 0.5)  AUC is threshold-free
-
-  ╔══ Round 2/8 Results ══
-  ║ Accuracy:  0.8564
-  ║ Precision: 0.8031
-  ║ Recall:    0.9118
-  ║ F1:        0.8540
-  ║ AUC:       0.9373
-  ╟──
-  ║ Round time: 1m 19s | Total elapsed: 3m 22s | ETA: 10m 8s
-  ╚══
-
-──────────────────────────────────────────────────
-  ROUND 3/8
-──────────────────────────────────────────────────
-  Selected clients: [0, 1] (1574 total samples)
-
-    ┌─ Client 0 (1/2) | 843 samples | 3 generators
-      [Client 0] LR this round: 0.000087
-      [Client 0] Epoch 1/1 | Loss: 0.7086 | Time: 26.8s | ETA: 0.0s
-      [Client 0] Local training done in 27.0s
-    └─ Client 0 complete
-
-    ┌─ Client 1 (2/2) | 731 samples | 2 generators
-      [Client 1] LR this round: 0.000087
-      [Client 1] Epoch 1/1 | Loss: 0.4616 | Time: 23.4s | ETA: 0.0s
-      [Client 1] Local training done in 23.5s
-    └─ Client 1 complete
-
-  Aggregating 2 client updates...
-  Aggregation done in 0.11s
-
-  Evaluating global model...
-    [Eval] Batch 12/24 (50%) | Elapsed: 26.0s
-    [Eval] Batch 24/24 (100%) | Elapsed: 27.3s
-    [Eval] Complete (369 samples in 28.9s)
-    [Eval] Threshold: 0.445 (val-calibrated; default 0.5)  AUC is threshold-free
-    [Eval] At t=0.5:   Acc=0.8943 | Rec=0.8235 | F1=0.8777
-    [Eval] At t=0.445: Acc=0.9322 | Rec=0.9588 | F1=0.9288 ← using this
-
-  ╔══ Round 3/8 Results ══
-  ║ Accuracy:  0.9322
-  ║ Precision: 0.9006
-  ║ Recall:    0.9588
-  ║ F1:        0.9288
-  ║ AUC:       0.9808
-  ╟──
-  ║ Round time: 1m 19s | Total elapsed: 4m 42s | ETA: 7m 50s
-  ╚══
-  ★ New best model! AUC: 0.9808 → saved to checkpoints/student_federated_best.pth
-
-──────────────────────────────────────────────────
-  ROUND 4/8
-──────────────────────────────────────────────────
-  Selected clients: [0, 1] (1574 total samples)
-
-    ┌─ Client 0 (1/2) | 843 samples | 3 generators
-      [Client 0] LR this round: 0.000072
-      [Client 0] Epoch 1/1 | Loss: 0.6017 | Time: 27.7s | ETA: 0.0s
-      [Client 0] Local training done in 27.8s
-    └─ Client 0 complete
-
-    ┌─ Client 1 (2/2) | 731 samples | 2 generators
-      [Client 1] LR this round: 0.000072
-      [Client 1] Epoch 1/1 | Loss: 0.3175 | Time: 23.5s | ETA: 0.0s
-      [Client 1] Local training done in 23.7s
-    └─ Client 1 complete
-
-  Aggregating 2 client updates...
-  Aggregation done in 0.07s
-
-  Evaluating global model...
-    [Eval] Batch 12/24 (50%) | Elapsed: 24.8s
-    [Eval] Batch 24/24 (100%) | Elapsed: 26.1s
-    [Eval] Complete (369 samples in 27.6s)
-    [Eval] Threshold: 0.456 (val-calibrated; default 0.5)  AUC is threshold-free
-
-  ╔══ Round 4/8 Results ══
-  ║ Accuracy:  0.9214
-  ║ Precision: 0.9123
-  ║ Recall:    0.9176
-  ║ F1:        0.9150
-  ║ AUC:       0.9809
-  ╟──
-  ║ Round time: 1m 19s | Total elapsed: 6m 2s | ETA: 6m 1s
-  ╚══
-  ★ New best model! AUC: 0.9809 → saved to checkpoints/student_federated_best.pth
-
-──────────────────────────────────────────────────
-  ROUND 5/8
-──────────────────────────────────────────────────
-  Selected clients: [0, 1] (1574 total samples)
-
-    ┌─ Client 0 (1/2) | 843 samples | 3 generators
-      [Client 0] LR this round: 0.000055
-      [Client 0] Epoch 1/1 | Loss: 0.5335 | Time: 26.7s | ETA: 0.0s
-      [Client 0] Local training done in 26.9s
-    └─ Client 0 complete
-
-    ┌─ Client 1 (2/2) | 731 samples | 2 generators
-      [Client 1] LR this round: 0.000055
-      [Client 1] Epoch 1/1 | Loss: 0.2605 | Time: 23.6s | ETA: 0.0s
-      [Client 1] Local training done in 23.7s
-    └─ Client 1 complete
+      [Client 1] Epoch 1/2 | Loss: 0.6138 | Time: 1m 33s | ETA: 1m 33s
+      [Client 1] Epoch 2/2 | Loss: 0.5085 | Time: 1m 24s | ETA: 0.0s
+      [Client 1] Local training done in 2m 58s
+    <- Client 1 complete
 
   Aggregating 2 client updates...
   Aggregation done in 0.04s
 
   Evaluating global model...
-    [Eval] Batch 12/24 (50%) | Elapsed: 25.1s
-    [Eval] Batch 24/24 (100%) | Elapsed: 26.4s
-    [Eval] Complete (369 samples in 28.0s)
-    [Eval] Threshold: 0.128 (val-calibrated; default 0.5)  AUC is threshold-free
-    [Eval] At t=0.5:   Acc=0.6585 | Rec=0.2706 | F1=0.4220
-    [Eval] At t=0.128: Acc=0.7859 | Rec=0.8824 | F1=0.7916 ← using this
+    [Eval] Batch 45/90 (50%) | Elapsed: 28.6s
+    [Eval] Batch 90/90 (100%) | Elapsed: 34.2s
+    [Eval] Complete (1428 frames -> 564 videos in 35.1s)
+    [Eval] Eval Threshold: 0.351 (calibrated)
 
-  ╔══ Round 5/8 Results ══
-  ║ Accuracy:  0.7859
-  ║ Precision: 0.7177
-  ║ Recall:    0.8824
-  ║ F1:        0.7916
-  ║ AUC:       0.8770
-  ╟──
-  ║ Round time: 1m 18s | Total elapsed: 7m 21s | ETA: 4m 24s
-  ╚══
+    [Eval] --- Per-Generator Breakdown (Video-Level) ---
+    [Eval] StyleGAN        | Acc: 0.8326 | F1: 0.4800 | AUC: 0.8796
+    [Eval] Face2Face       | Acc: 0.8421 | F1: 0.4706 | AUC: 0.9732
+    [Eval] FaceShifter     | Acc: 0.8421 | F1: 0.4706 | AUC: 0.9755
+    [Eval] Deepfakes       | Acc: 0.8421 | F1: 0.4706 | AUC: 0.9835
+    [Eval] DALL-E          | Acc: 0.8555 | F1: 0.6992 | AUC: 0.9314
+    [Eval] PNDM            | Acc: 0.7331 | F1: 0.1928 | AUC: 0.5825
+    [Eval] FaceSwap        | Acc: 0.8421 | F1: 0.4706 | AUC: 0.9570
+    [Eval] Stable Diffusion | Acc: 0.8440 | F1: 0.6422 | AUC: 0.9332
+    [Eval] DeepFaceLab     | Acc: 0.8462 | F1: 0.6346 | AUC: 0.9159
+    [Eval] NeuralTextures  | Acc: 0.8696 | F1: 0.7805 | AUC: 0.9830
+    [Eval] DDPM            | Acc: 0.8610 | F1: 0.7231 | AUC: 0.9244
 
-──────────────────────────────────────────────────
-  ROUND 6/8
-──────────────────────────────────────────────────
-  Selected clients: [0, 1] (1574 total samples)
+  === Round 1/10 Results ===
+  | Accuracy:  0.8652
+  | Precision: 0.8966
+  | Recall:    0.8864
+  | F1:        0.8914
+  | AUC:       0.9042
+  ---
+  | Round time: 6m 19s | Total elapsed: 6m 19s | ETA: 56m 53s
+  ===
+  ★ New best model! AUC: 0.9042 → saved to checkpoints/student_federated_best.pth
 
-    ┌─ Client 0 (1/2) | 843 samples | 3 generators
-      [Client 0] LR this round: 0.000038
-      [Client 0] Epoch 1/1 | Loss: 0.4545 | Time: 26.9s | ETA: 0.0s
-      [Client 0] Local training done in 27.1s
-    └─ Client 0 complete
+--------------------------------------------------
+  ROUND 2/10
+--------------------------------------------------
+  Selected clients: [0, 1] (6889 total samples)
 
-    ┌─ Client 1 (2/2) | 731 samples | 2 generators
-      [Client 1] LR this round: 0.000038
-      [Client 1] Epoch 1/1 | Loss: 0.2268 | Time: 23.4s | ETA: 0.0s
-      [Client 1] Local training done in 23.5s
-    └─ Client 1 complete
+    >- Client 0 (1/2) | 3136 samples | 6 generators
+      [Client 0] LR this round: 0.000098
+      [Client 0] Epoch 1/2 | Loss: 0.5817 | Time: 1m 12s | ETA: 1m 12s
+      [Client 0] Epoch 2/2 | Loss: 0.5504 | Time: 1m 15s | ETA: 0.0s
+      [Client 0] Local training done in 2m 28s
+    <- Client 0 complete
 
-  Aggregating 2 client updates...
-  Aggregation done in 0.08s
-
-  Evaluating global model...
-    [Eval] Batch 12/24 (50%) | Elapsed: 23.4s
-    [Eval] Batch 24/24 (100%) | Elapsed: 24.7s
-    [Eval] Complete (369 samples in 26.2s)
-    [Eval] Threshold: 0.096 (val-calibrated; default 0.5)  AUC is threshold-free
-    [Eval] At t=0.5:   Acc=0.6152 | Rec=0.1647 | F1=0.2828
-    [Eval] At t=0.096: Acc=0.8618 | Rec=0.8588 | F1=0.8513 ← using this
-
-  ╔══ Round 6/8 Results ══
-  ║ Accuracy:  0.8618
-  ║ Precision: 0.8439
-  ║ Recall:    0.8588
-  ║ F1:        0.8513
-  ║ AUC:       0.9346
-  ╟──
-  ║ Round time: 1m 17s | Total elapsed: 8m 38s | ETA: 2m 52s
-  ╚══
-
-──────────────────────────────────────────────────
-  ROUND 7/8
-──────────────────────────────────────────────────
-  Selected clients: [0, 1] (1574 total samples)
-
-    ┌─ Client 0 (1/2) | 843 samples | 3 generators
-      [Client 0] LR this round: 0.000023
-      [Client 0] Epoch 1/1 | Loss: 0.4083 | Time: 27.1s | ETA: 0.0s
-      [Client 0] Local training done in 27.2s
-    └─ Client 0 complete
-
-    ┌─ Client 1 (2/2) | 731 samples | 2 generators
-      [Client 1] LR this round: 0.000023
-      [Client 1] Epoch 1/1 | Loss: 0.2095 | Time: 24.2s | ETA: 0.0s
-      [Client 1] Local training done in 24.3s
-    └─ Client 1 complete
+    >- Client 1 (2/2) | 3753 samples | 5 generators
+      [Client 1] LR this round: 0.000098
+      [Client 1] Epoch 1/2 | Loss: 0.4963 | Time: 1m 27s | ETA: 1m 27s
+      [Client 1] Epoch 2/2 | Loss: 0.4436 | Time: 1m 24s | ETA: 0.0s
+      [Client 1] Local training done in 2m 51s
+    <- Client 1 complete
 
   Aggregating 2 client updates...
-  Aggregation done in 0.08s
+  Aggregation done in 0.04s
 
   Evaluating global model...
-    [Eval] Batch 12/24 (50%) | Elapsed: 23.6s
-    [Eval] Batch 24/24 (100%) | Elapsed: 24.9s
-    [Eval] Complete (369 samples in 26.3s)
-    [Eval] Threshold: 0.077 (val-calibrated; default 0.5)  AUC is threshold-free
-    [Eval] At t=0.5:   Acc=0.6016 | Rec=0.1412 | F1=0.2462
-    [Eval] At t=0.077: Acc=0.8076 | Rec=0.8824 | F1=0.8086 ← using this
+    [Eval] Batch 45/90 (50%) | Elapsed: 25.8s
+    [Eval] Batch 90/90 (100%) | Elapsed: 30.7s
+    [Eval] Complete (1428 frames -> 564 videos in 31.7s)
+    [Eval] Eval Threshold: 0.350 (calibrated)
 
-  ╔══ Round 7/8 Results ══
-  ║ Accuracy:  0.8076
-  ║ Precision: 0.7463
-  ║ Recall:    0.8824
-  ║ F1:        0.8086
-  ║ AUC:       0.9099
-  ╟──
-  ║ Round time: 1m 18s | Total elapsed: 9m 56s | ETA: 1m 25s
-  ╚══
+    [Eval] --- Per-Generator Breakdown (Video-Level) ---
+    [Eval] StyleGAN        | Acc: 0.7811 | F1: 0.4000 | AUC: 0.8329
+    [Eval] Face2Face       | Acc: 0.7939 | F1: 0.4051 | AUC: 0.9614
+    [Eval] FaceShifter     | Acc: 0.7939 | F1: 0.4051 | AUC: 0.9797
+    [Eval] Deepfakes       | Acc: 0.7939 | F1: 0.4051 | AUC: 0.9906
+    [Eval] DALL-E          | Acc: 0.8164 | F1: 0.6519 | AUC: 0.9642
+    [Eval] PNDM            | Acc: 0.7131 | F1: 0.2800 | AUC: 0.6004
+    [Eval] FaceSwap        | Acc: 0.7939 | F1: 0.4051 | AUC: 0.9278
+    [Eval] Stable Diffusion | Acc: 0.8120 | F1: 0.6179 | AUC: 0.9830
+    [Eval] DeepFaceLab     | Acc: 0.7976 | F1: 0.5614 | AUC: 0.9287
+    [Eval] NeuralTextures  | Acc: 0.8297 | F1: 0.7314 | AUC: 0.9921
+    [Eval] DDPM            | Acc: 0.8069 | F1: 0.6377 | AUC: 0.9212
 
-──────────────────────────────────────────────────
-  ROUND 8/8
-──────────────────────────────────────────────────
-  Selected clients: [0, 1] (1574 total samples)
+  === Round 2/10 Results ===
+  | Accuracy:  0.8546
+  | Precision: 0.8709
+  | Recall:    0.9006
+  | F1:        0.8855
+  | AUC:       0.9140
+  ---
+  | Round time: 5m 51s | Total elapsed: 12m 11s | ETA: 48m 45s
+  ===
+  ★ New best model! AUC: 0.9140 → saved to checkpoints/student_federated_best.pth
 
-    ┌─ Client 0 (1/2) | 843 samples | 3 generators
-      [Client 0] LR this round: 0.000013
-      [Client 0] Epoch 1/1 | Loss: 0.3541 | Time: 26.6s | ETA: 0.0s
-      [Client 0] Local training done in 26.7s
-    └─ Client 0 complete
+--------------------------------------------------
+  ROUND 3/10
+--------------------------------------------------
+  Selected clients: [0, 1] (6889 total samples)
 
-    ┌─ Client 1 (2/2) | 731 samples | 2 generators
-      [Client 1] LR this round: 0.000013
-      [Client 1] Epoch 1/1 | Loss: 0.1807 | Time: 23.2s | ETA: 0.0s
-      [Client 1] Local training done in 24.0s
-    └─ Client 1 complete
+    >- Client 0 (1/2) | 3136 samples | 6 generators
+      [Client 0] LR this round: 0.000093
+      [Client 0] Epoch 1/2 | Loss: 0.5435 | Time: 1m 15s | ETA: 1m 15s
+      [Client 0] Epoch 2/2 | Loss: 0.4687 | Time: 1m 12s | ETA: 0.0s
+      [Client 0] Local training done in 2m 28s
+    <- Client 0 complete
+
+    >- Client 1 (2/2) | 3753 samples | 5 generators
+      [Client 1] LR this round: 0.000093
+      [Client 1] Epoch 1/2 | Loss: 0.4378 | Time: 1m 22s | ETA: 1m 22s
+      [Client 1] Epoch 2/2 | Loss: 0.3996 | Time: 1m 21s | ETA: 0.0s
+      [Client 1] Local training done in 2m 44s
+    <- Client 1 complete
 
   Aggregating 2 client updates...
-  Aggregation done in 0.06s
+  Aggregation done in 0.05s
 
   Evaluating global model...
-    [Eval] Batch 12/24 (50%) | Elapsed: 23.6s
-    [Eval] Batch 24/24 (100%) | Elapsed: 24.9s
-    [Eval] Complete (369 samples in 26.3s)
-    [Eval] Threshold: 0.077 (val-calibrated; default 0.5)  AUC is threshold-free
-    [Eval] At t=0.5:   Acc=0.5799 | Rec=0.0882 | F1=0.1622
-    [Eval] At t=0.077: Acc=0.8455 | Rec=0.8176 | F1=0.8299 ← using this
+    [Eval] Batch 45/90 (50%) | Elapsed: 24.2s
+    [Eval] Batch 90/90 (100%) | Elapsed: 29.1s
+    [Eval] Complete (1428 frames -> 564 videos in 30.0s)
+    [Eval] Eval Threshold: 0.175 (calibrated)
 
-  ╔══ Round 8/8 Results ══
-  ║ Accuracy:  0.8455
-  ║ Precision: 0.8424
-  ║ Recall:    0.8176
-  ║ F1:        0.8299
-  ║ AUC:       0.9210
-  ╟──
-  ║ Round time: 1m 17s | Total elapsed: 11m 13s | ETA: 0.0s
-  ╚══
+    [Eval] --- Per-Generator Breakdown (Video-Level) ---
+    [Eval] StyleGAN        | Acc: 0.7768 | F1: 0.3659 | AUC: 0.7826
+    [Eval] Face2Face       | Acc: 0.7982 | F1: 0.4103 | AUC: 0.9573
+    [Eval] FaceShifter     | Acc: 0.7982 | F1: 0.4103 | AUC: 0.9755
+    [Eval] Deepfakes       | Acc: 0.7982 | F1: 0.4103 | AUC: 0.9894
+    [Eval] DALL-E          | Acc: 0.8203 | F1: 0.6567 | AUC: 0.9824
+    [Eval] PNDM            | Acc: 0.7211 | F1: 0.3000 | AUC: 0.6353
+    [Eval] FaceSwap        | Acc: 0.7982 | F1: 0.4103 | AUC: 0.9402
+    [Eval] Stable Diffusion | Acc: 0.8160 | F1: 0.6230 | AUC: 0.9882
+    [Eval] DeepFaceLab     | Acc: 0.7976 | F1: 0.5536 | AUC: 0.9414
+    [Eval] NeuralTextures  | Acc: 0.8333 | F1: 0.7356 | AUC: 0.9897
+    [Eval] DDPM            | Acc: 0.8185 | F1: 0.6619 | AUC: 0.9648
+
+  === Round 3/10 Results ===
+  | Accuracy:  0.8564
+  | Precision: 0.8733
+  | Recall:    0.9006
+  | F1:        0.8867
+  | AUC:       0.9245
+  ---
+  | Round time: 5m 42s | Total elapsed: 17m 54s | ETA: 41m 46s
+  ===
+  ★ New best model! AUC: 0.9245 → saved to checkpoints/student_federated_best.pth
+
+--------------------------------------------------
+  ROUND 4/10
+--------------------------------------------------
+  Selected clients: [0, 1] (6889 total samples)
+
+    >- Client 0 (1/2) | 3136 samples | 6 generators
+      [Client 0] LR this round: 0.000086
+      [Client 0] Epoch 1/2 | Loss: 0.4759 | Time: 1m 14s | ETA: 1m 14s
+      [Client 0] Epoch 2/2 | Loss: 0.4557 | Time: 1m 11s | ETA: 0.0s
+      [Client 0] Local training done in 2m 26s
+    <- Client 0 complete
+
+    >- Client 1 (2/2) | 3753 samples | 5 generators
+      [Client 1] LR this round: 0.000086
+      [Client 1] Epoch 1/2 | Loss: 0.3908 | Time: 1m 21s | ETA: 1m 21s
+      [Client 1] Epoch 2/2 | Loss: 0.3805 | Time: 1m 21s | ETA: 0.0s
+      [Client 1] Local training done in 2m 42s
+    <- Client 1 complete
+
+  Aggregating 2 client updates...
+  Aggregation done in 0.04s
+
+  Evaluating global model...
+    [Eval] Batch 45/90 (50%) | Elapsed: 23.4s
+    [Eval] Batch 90/90 (100%) | Elapsed: 28.3s
+    [Eval] Complete (1428 frames -> 564 videos in 29.2s)
+    [Eval] Eval Threshold: 0.108 (calibrated)
+
+    [Eval] --- Per-Generator Breakdown (Video-Level) ---
+    [Eval] StyleGAN        | Acc: 0.8197 | F1: 0.2500 | AUC: 0.5672
+    [Eval] Face2Face       | Acc: 0.8772 | F1: 0.5333 | AUC: 0.9682
+    [Eval] FaceShifter     | Acc: 0.8772 | F1: 0.5333 | AUC: 0.9823
+    [Eval] Deepfakes       | Acc: 0.8772 | F1: 0.5333 | AUC: 0.9894
+    [Eval] DALL-E          | Acc: 0.8906 | F1: 0.7586 | AUC: 0.9882
+    [Eval] PNDM            | Acc: 0.7490 | F1: 0.1127 | AUC: 0.4646
+    [Eval] FaceSwap        | Acc: 0.8772 | F1: 0.5333 | AUC: 0.9658
+    [Eval] Stable Diffusion | Acc: 0.8880 | F1: 0.7308 | AUC: 0.9916
+    [Eval] DeepFaceLab     | Acc: 0.8623 | F1: 0.6304 | AUC: 0.8659
+    [Eval] NeuralTextures  | Acc: 0.8986 | F1: 0.8205 | AUC: 0.9935
+    [Eval] DDPM            | Acc: 0.8764 | F1: 0.7288 | AUC: 0.9238
+
+  === Round 4/10 Results ===
+  | Accuracy:  0.8457
+  | Precision: 0.9128
+  | Recall:    0.8324
+  | F1:        0.8707
+  | AUC:       0.8835
+  ---
+  | Round time: 5m 38s | Total elapsed: 23m 33s | ETA: 35m 19s
+  ===
+
+--------------------------------------------------
+  ROUND 5/10
+--------------------------------------------------
+  Selected clients: [0, 1] (6889 total samples)
+
+    >- Client 0 (1/2) | 3136 samples | 6 generators
+      [Client 0] LR this round: 0.000076
+      [Client 0] Epoch 1/2 | Loss: 0.4724 | Time: 1m 12s | ETA: 1m 12s
+      [Client 0] Epoch 2/2 | Loss: 0.4242 | Time: 1m 11s | ETA: 0.0s
+      [Client 0] Local training done in 2m 23s
+    <- Client 0 complete
+
+    >- Client 1 (2/2) | 3753 samples | 5 generators
+      [Client 1] LR this round: 0.000076
+      [Client 1] Epoch 1/2 | Loss: 0.3717 | Time: 1m 21s | ETA: 1m 21s
+      [Client 1] Epoch 2/2 | Loss: 0.3936 | Time: 1m 21s | ETA: 0.0s
+      [Client 1] Local training done in 2m 43s
+    <- Client 1 complete
+
+  Aggregating 2 client updates...
+  Aggregation done in 0.04s
+
+  Evaluating global model...
+    [Eval] Batch 45/90 (50%) | Elapsed: 23.4s
+    [Eval] Batch 90/90 (100%) | Elapsed: 28.2s
+    [Eval] Complete (1428 frames -> 564 videos in 29.1s)
+    [Eval] Eval Threshold: 0.156 (calibrated)
+
+    [Eval] --- Per-Generator Breakdown (Video-Level) ---
+    [Eval] StyleGAN        | Acc: 0.7854 | F1: 0.3750 | AUC: 0.8165
+    [Eval] Face2Face       | Acc: 0.8070 | F1: 0.4211 | AUC: 0.9531
+    [Eval] FaceShifter     | Acc: 0.8070 | F1: 0.4211 | AUC: 0.9723
+    [Eval] Deepfakes       | Acc: 0.8070 | F1: 0.4211 | AUC: 0.9788
+    [Eval] DALL-E          | Acc: 0.8281 | F1: 0.6667 | AUC: 0.9954
+    [Eval] PNDM            | Acc: 0.7331 | F1: 0.3232 | AUC: 0.6765
+    [Eval] FaceSwap        | Acc: 0.8070 | F1: 0.4211 | AUC: 0.9493
+    [Eval] Stable Diffusion | Acc: 0.8240 | F1: 0.6333 | AUC: 0.9975
+    [Eval] DeepFaceLab     | Acc: 0.8016 | F1: 0.5505 | AUC: 0.9181
+    [Eval] NeuralTextures  | Acc: 0.8406 | F1: 0.7442 | AUC: 0.9886
+    [Eval] DDPM            | Acc: 0.8224 | F1: 0.6618 | AUC: 0.9499
+
+  === Round 5/10 Results ===
+  | Accuracy:  0.8582
+  | Precision: 0.8778
+  | Recall:    0.8977
+  | F1:        0.8876
+  | AUC:       0.9288
+  ---
+  | Round time: 5m 36s | Total elapsed: 29m 9s | ETA: 29m 9s
+  ===
+  ★ New best model! AUC: 0.9288 → saved to checkpoints/student_federated_best.pth
+
+--------------------------------------------------
+  ROUND 6/10
+--------------------------------------------------
+  Selected clients: [0, 1] (6889 total samples)
+
+    >- Client 0 (1/2) | 3136 samples | 6 generators
+      [Client 0] LR this round: 0.000065
+      [Client 0] Epoch 1/2 | Loss: 0.4204 | Time: 1m 13s | ETA: 1m 13s
+      [Client 0] Epoch 2/2 | Loss: 0.3909 | Time: 1m 12s | ETA: 0.0s
+      [Client 0] Local training done in 2m 26s
+    <- Client 0 complete
+
+    >- Client 1 (2/2) | 3753 samples | 5 generators
+      [Client 1] LR this round: 0.000065
+      [Client 1] Epoch 1/2 | Loss: 0.3619 | Time: 1m 21s | ETA: 1m 21s
+      [Client 1] Epoch 2/2 | Loss: 0.3614 | Time: 1m 21s | ETA: 0.0s
+      [Client 1] Local training done in 2m 42s
+    <- Client 1 complete
+
+  Aggregating 2 client updates...
+  Aggregation done in 0.04s
+
+  Evaluating global model...
+    [Eval] Batch 45/90 (50%) | Elapsed: 23.5s
+    [Eval] Batch 90/90 (100%) | Elapsed: 28.9s
+    [Eval] Complete (1428 frames -> 564 videos in 29.8s)
+    [Eval] Eval Threshold: 0.134 (calibrated)
+
+    [Eval] --- Per-Generator Breakdown (Video-Level) ---
+    [Eval] StyleGAN        | Acc: 0.6996 | F1: 0.2391 | AUC: 0.7051
+    [Eval] Face2Face       | Acc: 0.7368 | F1: 0.3478 | AUC: 0.9407
+    [Eval] FaceShifter     | Acc: 0.7368 | F1: 0.3478 | AUC: 0.9596
+    [Eval] Deepfakes       | Acc: 0.7368 | F1: 0.3478 | AUC: 0.9735
+    [Eval] DALL-E          | Acc: 0.7656 | F1: 0.5946 | AUC: 0.9951
+    [Eval] PNDM            | Acc: 0.6813 | F1: 0.3220 | AUC: 0.6478
+    [Eval] FaceSwap        | Acc: 0.7368 | F1: 0.3478 | AUC: 0.9310
+    [Eval] Stable Diffusion | Acc: 0.7600 | F1: 0.5588 | AUC: 0.9923
+    [Eval] DeepFaceLab     | Acc: 0.7530 | F1: 0.5271 | AUC: 0.9333
+    [Eval] NeuralTextures  | Acc: 0.7826 | F1: 0.6809 | AUC: 0.9880
+    [Eval] DDPM            | Acc: 0.7645 | F1: 0.6013 | AUC: 0.9656
+
+  === Round 6/10 Results ===
+  | Accuracy:  0.8369
+  | Precision: 0.8421
+  | Recall:    0.9091
+  | F1:        0.8743
+  | AUC:       0.9197
+  ---
+  | Round time: 5m 38s | Total elapsed: 34m 48s | ETA: 23m 12s
+  ===
+
+--------------------------------------------------
+  ROUND 7/10
+--------------------------------------------------
+  Selected clients: [0, 1] (6889 total samples)
+
+    >- Client 0 (1/2) | 3136 samples | 6 generators
+      [Client 0] LR this round: 0.000054
+      [Client 0] Epoch 1/2 | Loss: 0.3913 | Time: 1m 12s | ETA: 1m 12s
+      [Client 0] Epoch 2/2 | Loss: 0.3708 | Time: 1m 10s | ETA: 0.0s
+      [Client 0] Local training done in 2m 23s
+    <- Client 0 complete
+
+    >- Client 1 (2/2) | 3753 samples | 5 generators
+      [Client 1] LR this round: 0.000054
+      [Client 1] Epoch 1/2 | Loss: 0.3507 | Time: 1m 20s | ETA: 1m 20s
+      [Client 1] Epoch 2/2 | Loss: 0.3339 | Time: 1m 21s | ETA: 0.0s
+      [Client 1] Local training done in 2m 42s
+    <- Client 1 complete
+
+  Aggregating 2 client updates...
+  Aggregation done in 0.04s
+
+  Evaluating global model...
+    [Eval] Batch 45/90 (50%) | Elapsed: 23.7s
+    [Eval] Batch 90/90 (100%) | Elapsed: 28.6s
+    [Eval] Complete (1428 frames -> 564 videos in 29.5s)
+    [Eval] Eval Threshold: 0.405 (calibrated)
+
+    [Eval] --- Per-Generator Breakdown (Video-Level) ---
+    [Eval] StyleGAN        | Acc: 0.8627 | F1: 0.4286 | AUC: 0.8385
+    [Eval] Face2Face       | Acc: 0.8947 | F1: 0.5556 | AUC: 0.9443
+    [Eval] FaceShifter     | Acc: 0.8947 | F1: 0.5556 | AUC: 0.9587
+    [Eval] Deepfakes       | Acc: 0.8991 | F1: 0.5818 | AUC: 0.9708
+    [Eval] DALL-E          | Acc: 0.9062 | F1: 0.7818 | AUC: 0.9855
+    [Eval] PNDM            | Acc: 0.7968 | F1: 0.3014 | AUC: 0.7048
+    [Eval] FaceSwap        | Acc: 0.8991 | F1: 0.5818 | AUC: 0.9460
+    [Eval] Stable Diffusion | Acc: 0.9080 | F1: 0.7677 | AUC: 0.9748
+    [Eval] DeepFaceLab     | Acc: 0.8785 | F1: 0.6512 | AUC: 0.9226
+    [Eval] NeuralTextures  | Acc: 0.9130 | F1: 0.8400 | AUC: 0.9830
+    [Eval] DDPM            | Acc: 0.9035 | F1: 0.7826 | AUC: 0.9684
+
+  === Round 7/10 Results ===
+  | Accuracy:  0.8706
+  | Precision: 0.9292
+  | Recall:    0.8580
+  | F1:        0.8922
+  | AUC:       0.9299
+  ---
+  | Round time: 5m 35s | Total elapsed: 40m 24s | ETA: 17m 18s
+  ===
+  ★ New best model! AUC: 0.9299 → saved to checkpoints/student_federated_best.pth
+
+--------------------------------------------------
+  ROUND 8/10
+--------------------------------------------------
+  Selected clients: [0, 1] (6889 total samples)
+
+    >- Client 0 (1/2) | 3136 samples | 6 generators
+      [Client 0] LR this round: 0.000044
+      [Client 0] Epoch 1/2 | Loss: 0.3630 | Time: 1m 11s | ETA: 1m 11s
+      [Client 0] Epoch 2/2 | Loss: 0.3607 | Time: 1m 10s | ETA: 0.0s
+      [Client 0] Local training done in 2m 22s
+    <- Client 0 complete
+
+    >- Client 1 (2/2) | 3753 samples | 5 generators
+      [Client 1] LR this round: 0.000044
+      [Client 1] Epoch 1/2 | Loss: 0.3189 | Time: 1m 21s | ETA: 1m 21s
+      [Client 1] Epoch 2/2 | Loss: 0.3240 | Time: 1m 21s | ETA: 0.0s
+      [Client 1] Local training done in 2m 43s
+    <- Client 1 complete
+
+  Aggregating 2 client updates...
+  Aggregation done in 0.04s
+
+  Evaluating global model...
+    [Eval] Batch 45/90 (50%) | Elapsed: 23.1s
+    [Eval] Batch 90/90 (100%) | Elapsed: 28.1s
+    [Eval] Complete (1428 frames -> 564 videos in 29.0s)
+    [Eval] Eval Threshold: 0.081 (calibrated)
+
+    [Eval] --- Per-Generator Breakdown (Video-Level) ---
+    [Eval] StyleGAN        | Acc: 0.8026 | F1: 0.4250 | AUC: 0.8192
+    [Eval] Face2Face       | Acc: 0.8158 | F1: 0.4324 | AUC: 0.9637
+    [Eval] FaceShifter     | Acc: 0.8158 | F1: 0.4324 | AUC: 0.9732
+    [Eval] Deepfakes       | Acc: 0.8158 | F1: 0.4324 | AUC: 0.9814
+    [Eval] DALL-E          | Acc: 0.8359 | F1: 0.6769 | AUC: 0.9931
+    [Eval] PNDM            | Acc: 0.7490 | F1: 0.3636 | AUC: 0.6878
+    [Eval] FaceSwap        | Acc: 0.8158 | F1: 0.4324 | AUC: 0.9584
+    [Eval] Stable Diffusion | Acc: 0.8320 | F1: 0.6441 | AUC: 0.9965
+    [Eval] DeepFaceLab     | Acc: 0.8178 | F1: 0.5872 | AUC: 0.9089
+    [Eval] NeuralTextures  | Acc: 0.8478 | F1: 0.7529 | AUC: 0.9895
+    [Eval] DDPM            | Acc: 0.8340 | F1: 0.6815 | AUC: 0.9643
+
+  === Round 8/10 Results ===
+  | Accuracy:  0.8741
+  | Precision: 0.8849
+  | Recall:    0.9176
+  | F1:        0.9010
+  | AUC:       0.9320
+  ---
+  | Round time: 5m 34s | Total elapsed: 45m 59s | ETA: 11m 29s
+  ===
+  ★ New best model! AUC: 0.9320 → saved to checkpoints/student_federated_best.pth
+
+--------------------------------------------------
+  ROUND 9/10
+--------------------------------------------------
+  Selected clients: [0, 1] (6889 total samples)
+
+    >- Client 0 (1/2) | 3136 samples | 6 generators
+      [Client 0] LR this round: 0.000037
+      [Client 0] Epoch 1/2 | Loss: 0.3543 | Time: 1m 13s | ETA: 1m 13s
+      [Client 0] Epoch 2/2 | Loss: 0.3382 | Time: 1m 11s | ETA: 0.0s
+      [Client 0] Local training done in 2m 24s
+    <- Client 0 complete
+
+    >- Client 1 (2/2) | 3753 samples | 5 generators
+      [Client 1] LR this round: 0.000037
+      [Client 1] Epoch 1/2 | Loss: 0.3225 | Time: 1m 21s | ETA: 1m 21s
+      [Client 1] Epoch 2/2 | Loss: 0.3117 | Time: 1m 24s | ETA: 0.0s
+      [Client 1] Local training done in 2m 45s
+    <- Client 1 complete
+
+  Aggregating 2 client updates...
+  Aggregation done in 0.05s
+
+  Evaluating global model...
+    [Eval] Batch 45/90 (50%) | Elapsed: 23.6s
+    [Eval] Batch 90/90 (100%) | Elapsed: 28.5s
+    [Eval] Complete (1428 frames -> 564 videos in 29.5s)
+    [Eval] Eval Threshold: 0.088 (calibrated)
+
+    [Eval] --- Per-Generator Breakdown (Video-Level) ---
+    [Eval] StyleGAN        | Acc: 0.8155 | F1: 0.4416 | AUC: 0.8589
+    [Eval] Face2Face       | Acc: 0.8289 | F1: 0.4507 | AUC: 0.9564
+    [Eval] FaceShifter     | Acc: 0.8289 | F1: 0.4507 | AUC: 0.9688
+    [Eval] Deepfakes       | Acc: 0.8289 | F1: 0.4507 | AUC: 0.9752
+    [Eval] DALL-E          | Acc: 0.8477 | F1: 0.6929 | AUC: 0.9911
+    [Eval] PNDM            | Acc: 0.7649 | F1: 0.3918 | AUC: 0.6867
+    [Eval] FaceSwap        | Acc: 0.8289 | F1: 0.4507 | AUC: 0.9502
+    [Eval] Stable Diffusion | Acc: 0.8440 | F1: 0.6609 | AUC: 0.9841
+    [Eval] DeepFaceLab     | Acc: 0.8300 | F1: 0.6038 | AUC: 0.8900
+    [Eval] NeuralTextures  | Acc: 0.8587 | F1: 0.7665 | AUC: 0.9877
+    [Eval] DDPM            | Acc: 0.8456 | F1: 0.6970 | AUC: 0.9646
+
+  === Round 9/10 Results ===
+  | Accuracy:  0.8812
+  | Precision: 0.8926
+  | Recall:    0.9205
+  | F1:        0.9063
+  | AUC:       0.9294
+  ---
+  | Round time: 5m 40s | Total elapsed: 51m 40s | ETA: 5m 44s
+  ===
+
+--------------------------------------------------
+  ROUND 10/10
+--------------------------------------------------
+  Selected clients: [0, 1] (6889 total samples)
+
+    >- Client 0 (1/2) | 3136 samples | 6 generators
+      [Client 0] LR this round: 0.000032
+      [Client 0] Epoch 1/2 | Loss: 0.3356 | Time: 1m 13s | ETA: 1m 13s
+      [Client 0] Epoch 2/2 | Loss: 0.3341 | Time: 1m 11s | ETA: 0.0s
+      [Client 0] Local training done in 2m 24s
+    <- Client 0 complete
+
+    >- Client 1 (2/2) | 3753 samples | 5 generators
+      [Client 1] LR this round: 0.000032
+      [Client 1] Epoch 1/2 | Loss: 0.3077 | Time: 1m 22s | ETA: 1m 22s
+      [Client 1] Epoch 2/2 | Loss: 0.3068 | Time: 1m 21s | ETA: 0.0s
+      [Client 1] Local training done in 2m 44s
+    <- Client 1 complete
+
+  Aggregating 2 client updates...
+  Aggregation done in 0.04s
+
+  Evaluating global model...
+    [Eval] Batch 45/90 (50%) | Elapsed: 23.9s
+    [Eval] Batch 90/90 (100%) | Elapsed: 29.1s
+    [Eval] Complete (1428 frames -> 564 videos in 30.0s)
+    [Eval] Eval Threshold: 0.114 (calibrated)
+
+    [Eval] --- Per-Generator Breakdown (Video-Level) ---
+    [Eval] StyleGAN        | Acc: 0.8455 | F1: 0.4000 | AUC: 0.8430
+    [Eval] Face2Face       | Acc: 0.8816 | F1: 0.5424 | AUC: 0.9558
+    [Eval] FaceShifter     | Acc: 0.8816 | F1: 0.5424 | AUC: 0.9682
+    [Eval] Deepfakes       | Acc: 0.8816 | F1: 0.5424 | AUC: 0.9794
+    [Eval] DALL-E          | Acc: 0.8945 | F1: 0.7652 | AUC: 0.9949
+    [Eval] PNDM            | Acc: 0.7888 | F1: 0.3291 | AUC: 0.6647
+    [Eval] FaceSwap        | Acc: 0.8816 | F1: 0.5424 | AUC: 0.9487
+    [Eval] Stable Diffusion | Acc: 0.8920 | F1: 0.7379 | AUC: 0.9928
+    [Eval] DeepFaceLab     | Acc: 0.8745 | F1: 0.6667 | AUC: 0.9011
+    [Eval] NeuralTextures  | Acc: 0.9022 | F1: 0.8258 | AUC: 0.9895
+    [Eval] DDPM            | Acc: 0.8919 | F1: 0.7667 | AUC: 0.9682
+
+  === Round 10/10 Results ===
+  | Accuracy:  0.8812
+  | Precision: 0.9204
+  | Recall:    0.8864
+  | F1:        0.9030
+  | AUC:       0.9293
+  ---
+  | Round time: 5m 39s | Total elapsed: 57m 20s | ETA: 0.0s
+  ===
 
 ============================================================
   FEDERATED TRAINING COMPLETE
-  Total time:  11m 13s
-  Best AUC:    0.9809
-  Total rounds: 8
-  Avg round:   1m 24s
+  Total time:  57m 20s
+  Best AUC:    0.9320
+  Total rounds: 10
+  Avg round:   5m 43s
 ============================================================
 
 
   Loading best federated checkpoint for final test evaluation...
 
   Final evaluation on validation split (with TTA)...
-    [Eval] Batch 12/24 (50%) | Elapsed: 28.5s
-    [Eval] Batch 24/24 (100%) | Elapsed: 34.3s
-    [Eval] Complete (369 samples in 35.7s)
-    [Eval] Threshold: 0.455 (val-calibrated; default 0.5)  AUC is threshold-free
-  [Federated Val] | Acc: 0.9079 | Prec: 0.8736 | Rec: 0.9353 | F1: 0.9034 | AUC: 0.9709
+    [Eval] Batch 45/90 (50%) | Elapsed: 43.8s
+    [Eval] Batch 90/90 (100%) | Elapsed: 66.8s
+    [Eval] Complete (1428 frames -> 564 videos in 67.7s)
+    [Eval] Eval Threshold: 0.083 (calibrated)
+
+    [Eval] --- Per-Generator Breakdown (Video-Level) ---
+    [Eval] StyleGAN        | Acc: 0.8026 | F1: 0.4103 | AUC: 0.8203
+    [Eval] Face2Face       | Acc: 0.8202 | F1: 0.4384 | AUC: 0.9661
+    [Eval] FaceShifter     | Acc: 0.8202 | F1: 0.4384 | AUC: 0.9741
+    [Eval] Deepfakes       | Acc: 0.8202 | F1: 0.4384 | AUC: 0.9844
+    [Eval] DALL-E          | Acc: 0.8359 | F1: 0.6719 | AUC: 0.9917
+    [Eval] PNDM            | Acc: 0.7570 | F1: 0.3838 | AUC: 0.6875
+    [Eval] FaceSwap        | Acc: 0.8202 | F1: 0.4384 | AUC: 0.9629
+    [Eval] Stable Diffusion | Acc: 0.8360 | F1: 0.6496 | AUC: 0.9960
+    [Eval] DeepFaceLab     | Acc: 0.8219 | F1: 0.5926 | AUC: 0.9085
+    [Eval] NeuralTextures  | Acc: 0.8514 | F1: 0.7574 | AUC: 0.9903
+    [Eval] DDPM            | Acc: 0.8378 | F1: 0.6866 | AUC: 0.9629
+    [Eval] Batch 45/90 (50%) | Elapsed: 43.6s
+    [Eval] Batch 90/90 (100%) | Elapsed: 66.7s
+    [Eval] Complete (1428 frames -> 564 videos in 67.6s)
+    [Eval] Eval Threshold: 0.083 (provided)
+
+    [Eval] --- Per-Generator Breakdown (Video-Level) ---
+    [Eval] StyleGAN        | Acc: 0.8026 | F1: 0.4103 | AUC: 0.8203
+    [Eval] Face2Face       | Acc: 0.8202 | F1: 0.4384 | AUC: 0.9661
+    [Eval] FaceShifter     | Acc: 0.8202 | F1: 0.4384 | AUC: 0.9741
+    [Eval] Deepfakes       | Acc: 0.8202 | F1: 0.4384 | AUC: 0.9844
+    [Eval] DALL-E          | Acc: 0.8359 | F1: 0.6719 | AUC: 0.9917
+    [Eval] PNDM            | Acc: 0.7570 | F1: 0.3838 | AUC: 0.6875
+    [Eval] FaceSwap        | Acc: 0.8202 | F1: 0.4384 | AUC: 0.9629
+    [Eval] Stable Diffusion | Acc: 0.8360 | F1: 0.6496 | AUC: 0.9960
+    [Eval] DeepFaceLab     | Acc: 0.8219 | F1: 0.5926 | AUC: 0.9085
+    [Eval] NeuralTextures  | Acc: 0.8514 | F1: 0.7574 | AUC: 0.9903
+    [Eval] DDPM            | Acc: 0.8378 | F1: 0.6866 | AUC: 0.9629
+  [Federated Val (Calibrated)] | Acc: 0.8741 | Prec: 0.8871 | Rec: 0.9148 | F1: 0.9007 | AUC: 0.9323   
 
   Final test evaluation using validation threshold (with TTA)...
-    [Eval] Batch 12/24 (50%) | Elapsed: 29.8s
-    [Eval] Batch 24/24 (100%) | Elapsed: 36.1s
-    [Eval] Complete (370 samples in 37.5s)
-    [Eval] Threshold: 0.455 (provided; default 0.5)  AUC is threshold-free
-  [Federated Test] | Acc: 0.8703 | Prec: 0.8868 | Rec: 0.8246 | F1: 0.8545 | AUC: 0.9191
+    [Eval] Batch 47/94 (50%) | Elapsed: 45.0s
+    [Eval] Batch 94/94 (100%) | Elapsed: 70.4s
+    [Eval] Complete (1500 frames -> 150 videos in 71.4s)
+    [Eval] Eval Threshold: 0.083 (provided)
+
+    [Eval] --- Per-Generator Breakdown (Video-Level) ---
+    [Eval] fake_method_A   | Acc: 0.5900 | F1: 0.7050 | AUC: 0.7936
+    [Eval] fake_method_B   | Acc: 0.6000 | F1: 0.7143 | AUC: 0.7440
+  [Federated Test] | Acc: 0.7267 | Prec: 0.7122 | Rec: 0.9900 | F1: 0.8285 | AUC: 0.7688
 
 ============================================================
   FEDERATED PIPELINE COMPLETE
-  Phase 1 (Teacher):    17m 49s
-  Phase 2 (Federated):  11m 13s
-  Total pipeline time:  30m 35s
+  Phase 1 (Teacher):    24m 48s
+  Phase 2 (Federated):  57m 20s
+  Total pipeline time:  1h 25m 38s
 
-  Best round: 4/8
-  Best Val AUC: 0.9809
-  Best F1:    0.9150
-  Best Acc:   0.9214
-  Test AUC:   0.9191
+  Best round: 8/10
+  Best Val AUC: 0.9320
+  Best F1:    0.9010
+  Best Acc:   0.8741
+  Test AUC:   0.7688
