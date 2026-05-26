@@ -409,10 +409,10 @@ Where $p = \text{softmax}(z/T)$.
 \mathcal{L}_{Total} = \mathcal{L}_{CE} + \lambda_{feat} \mathcal{L}_{feat} + \lambda_{KL} \mathcal{L}_{KL} + \mathcal{L}_{FedProx}
 ```
 **Variables:**
-- $\mathcal{L}_{CE}$: Cross-Entropy loss (how well the student predicts Real vs Fake).
-- $\lambda_{feat}$ and $\lambda_{KL}$: Hyperparameters (from `config.yaml`) controlling how much the Student should care about mimicking the Teacher's features vs logits.
-- $\mathcal{L}_{FedProx}$: The proximal penalty controlled by $\mu$.
-**Intuition:** The Student is fighting a three-way tug-of-war. It wants to learn from the raw data ($\mathcal{L}_{CE}$), it wants to copy the Teacher's homework ($\lambda \mathcal{L}_{KD}$), and the Server is holding it back by a leash so it doesn't drift too far from the group ($\mathcal{L}_{FedProx}$).
+- `L_CE`: Cross-Entropy loss (how well the student predicts Real vs Fake).
+- `lambda_feat` and `lambda_KL`: Hyperparameters (from `config.yaml`) controlling how much the Student should care about mimicking the Teacher's features vs logits.
+- `L_FedProx`: The proximal penalty controlled by `mu`.
+**Intuition:** The Student is fighting a three-way tug-of-war. It wants to learn from the raw data (`L_CE`), it wants to copy the Teacher's homework (`λ * L_KD`), and the Server is holding it back by a leash so it doesn't drift too far from the group (`L_FedProx`).
 
 ### 7. Threshold Calibration
 **What it is:** Finding the optimal probability threshold to separate Real from Fake.
