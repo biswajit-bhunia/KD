@@ -343,35 +343,35 @@ graph TD
 Below is the formal step-by-step algorithm detailing exactly how the Federated Knowledge Distillation loop operates.
 
 ```math
-\begin{aligned}
-&\textbf{Algorithm 1: } \text{Dual-Domain Federated Knowledge Distillation (FedProx)} \\
-&\hline \\
-&\textbf{Input: } \text{Set of clients } \mathcal{K}\text{, Server, Frozen Teacher model } \mathcal{T} \\
-&\textbf{Hyperparameters: } \text{Rounds } R\text{, Local epochs } E\text{, LR } \eta\text{, FedProx } \mu\text{, Feature KD } \lambda \\
-&\text{1: Server initializes Global Student model } \mathcal{S}_0 \\
-&\text{2: } \textbf{for } \text{round } r = 1, 2, \dots, R \textbf{ do} \\
-&\text{3: } \quad \text{Server selects a subset of clients } \mathcal{S}_r \subseteq \mathcal{K} \\
-&\text{4: } \quad \text{Server broadcasts global weights } w_r \text{ to all clients } k \in \mathcal{S}_r \\
-&\text{5: } \quad \textbf{for each } \text{client } k \in \mathcal{S}_r \textbf{ in parallel do} \\
-&\text{6: } \quad \quad w_{r,k} \leftarrow \text{ClientUpdate}(k, w_r, \mathcal{T}) \\
-&\text{7: } \quad N \leftarrow \sum_{k \in \mathcal{S}_r} n_k \quad \text{(Total samples across active clients)} \\
-&\text{8: } \quad w_{r+1} \leftarrow \sum_{k \in \mathcal{S}_r} \frac{n_k}{N} w_{r,k} \quad \text{(FedAvg)} \\
-&\text{9: } \quad \text{Evaluate } w_{r+1} \text{ on Validation Set} \\
-&\hline \\
-&\textbf{function } \text{ClientUpdate}(k, w_{global}, \mathcal{T}) \\
-&\text{1: Initialize local student model } \mathcal{S}_k \text{ with weights } w_{global} \\
-&\text{2: } \textbf{for } \text{local epoch } e = 1 \text{ to } E \textbf{ do} \\
-&\text{3: } \quad \textbf{for each } \text{batch } (X_{rgb}, y_{true}) \in \mathcal{D}_k \textbf{ do} \\
-&\text{4: } \quad \quad X_{for} \leftarrow \text{compute\_SRM\_and\_FFT}(X_{rgb}) \\
-&\text{5: } \quad \quad Z_{teacher\_embed}, \_ \leftarrow \mathcal{T}(X_{rgb}, X_{for}) \\
-&\text{6: } \quad \quad Z_{student\_embed}, Y_{pred\_logits} \leftarrow \mathcal{S}_k(X_{rgb}, X_{for}) \\
-&\text{7: } \quad \quad \mathcal{L}_{CE} \leftarrow \text{CrossEntropy}(Y_{pred\_logits}, y_{true}) \\
-&\text{8: } \quad \quad \mathcal{L}_{KD} \leftarrow \left\| \frac{Z_{student\_embed}}{\|Z_{student\_embed}\|_2} - \frac{Z_{teacher\_embed}}{\|Z_{teacher\_embed}\|_2} \right\|_2^2 \\
-&\text{9: } \quad \quad \mathcal{L}_{Prox} \leftarrow \frac{\mu}{2} \left\| \mathcal{S}_k.weights - w_{global} \right\|_2^2 \\
-&\text{10:} \quad \quad \mathcal{L}_{Total} \leftarrow \mathcal{L}_{CE} + \lambda \mathcal{L}_{KD} + \mathcal{L}_{Prox} \\
-&\text{11:} \quad \quad \mathcal{S}_k.weights \leftarrow \mathcal{S}_k.weights - \eta \nabla \mathcal{L}_{Total} \\
-&\text{12:} \textbf{return } \mathcal{S}_k.weights
-\end{aligned}
+\begin{array}{l}
+\textbf{Algorithm 1: } \text{Dual-Domain Federated Knowledge Distillation (FedProx)} \\
+\hline
+\textbf{Input: } \text{Set of clients } \mathcal{K}\text{, Server, Frozen Teacher model } \mathcal{T} \\
+\textbf{Hyperparameters: } \text{Rounds } R\text{, Local epochs } E\text{, LR } \eta\text{, FedProx } \mu\text{, Feature KD } \lambda \\
+\text{1: Server initializes Global Student model } \mathcal{S}_0 \\
+\text{2: } \textbf{for } \text{round } r = 1, 2, \dots, R \textbf{ do} \\
+\quad \text{3: Server selects a subset of clients } \mathcal{S}_r \subseteq \mathcal{K} \\
+\quad \text{4: Server broadcasts global weights } w_r \text{ to all clients } k \in \mathcal{S}_r \\
+\quad \text{5: } \textbf{for each } \text{client } k \in \mathcal{S}_r \textbf{ in parallel do} \\
+\quad \quad \text{6: } w_{r,k} \leftarrow \text{ClientUpdate}(k, w_r, \mathcal{T}) \\
+\quad \text{7: } N \leftarrow \sum_{k \in \mathcal{S}_r} n_k \quad \text{(Total samples across active clients)} \\
+\quad \text{8: } w_{r+1} \leftarrow \sum_{k \in \mathcal{S}_r} \frac{n_k}{N} w_{r,k} \quad \text{(FedAvg)} \\
+\quad \text{9: Evaluate } w_{r+1} \text{ on Validation Set} \\
+\hline
+\textbf{function } \text{ClientUpdate}(k, w_{global}, \mathcal{T}) \\
+\text{1: Initialize local student model } \mathcal{S}_k \text{ with weights } w_{global} \\
+\text{2: } \textbf{for } \text{local epoch } e = 1 \text{ to } E \textbf{ do} \\
+\quad \text{3: } \textbf{for each } \text{batch } (X_{rgb}, y_{true}) \in \mathcal{D}_k \textbf{ do} \\
+\quad \quad \text{4: } X_{for} \leftarrow \text{compute\_SRM\_and\_FFT}(X_{rgb}) \\
+\quad \quad \text{5: } Z_{teacher}, \_ \leftarrow \mathcal{T}(X_{rgb}, X_{for}) \\
+\quad \quad \text{6: } Z_{student}, Y_{logits} \leftarrow \mathcal{S}_k(X_{rgb}, X_{for}) \\
+\quad \quad \text{7: } \mathcal{L}_{CE} \leftarrow \text{CrossEntropy}(Y_{logits}, y_{true}) \\
+\quad \quad \text{8: } \mathcal{L}_{KD} \leftarrow \left\| \frac{Z_{student}}{\|Z_{student}\|_2} - \frac{Z_{teacher}}{\|Z_{teacher}\|_2} \right\|_2^2 \\
+\quad \quad \text{9: } \mathcal{L}_{Prox} \leftarrow \frac{\mu}{2} \left\| \mathcal{S}_k.weights - w_{global} \right\|_2^2 \\
+\quad \quad \text{10: } \mathcal{L}_{Total} \leftarrow \mathcal{L}_{CE} + \lambda \mathcal{L}_{KD} + \mathcal{L}_{Prox} \\
+\quad \quad \text{11: } \mathcal{S}_k.weights \leftarrow \mathcal{S}_k.weights - \eta \nabla \mathcal{L}_{Total} \\
+\text{12: } \textbf{return } \mathcal{S}_k.weights
+\end{array}
 ```
 
 **Math of Federation (FedAvg):**
