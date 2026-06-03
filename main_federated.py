@@ -91,27 +91,24 @@ def main():
     print(f"  FedProx mu: {mu} | IID: {iid_partition}")
     print(f"{'='*60}")
 
-    train_roots = config.get("train_roots", [config.get("train_root", "D:\\ff++_extracted")])
-    test_data_dir  = config.get("test_root", "D:\\DFDC_EXTRACTED")
-    val_split_ratio = config.get("val_split_ratio", 0.2)
+    data_root = config.get("data_root", "./data")
+    train_gens = config.get("train_generators", [])
+    val_gens = config.get("val_generators", [])
+    test_gens = config.get("test_generators", [])
 
-    ffpp_samples = []
+    print(f"\n  Loading all samples from {data_root}...")
     load_start = time.time()
-    for tr in train_roots:
-        print(f"\n  Loading Train/Val Dataset from {tr}...")
-        tr_samples = load_samples(tr)
-        print(f"  Loaded {len(tr_samples)} samples from {tr}")
-        ffpp_samples.extend(tr_samples)
-    
-    print(f"  Total Train/Val samples loaded: {len(ffpp_samples)} in {time.time() - load_start:.1f}s")
+    all_samples = load_samples(data_root)
+    print(f"  Loaded {len(all_samples)} total samples in {time.time() - load_start:.1f}s")
 
-    print(f"  Loading Test Dataset from {test_data_dir}...")
-    load_start = time.time()
-    test_samples = load_samples(test_data_dir)
-    print(f"  Loaded {len(test_samples)} test samples in {time.time() - load_start:.1f}s")
-
-    from data.split import split_by_video_identity
-    train_samples, val_samples = split_by_video_identity(ffpp_samples, test_size=val_split_ratio, random_state=seed)
+    from data.split import split_by_generator
+    train_samples, val_samples, test_samples = split_by_generator(
+        all_samples, 
+        train_gens, 
+        val_gens, 
+        test_gens, 
+        random_state=seed
+    )
 
     print(f"  Train: {len(train_samples)} | Val: {len(val_samples)} | Test: {len(test_samples)}")
 
@@ -317,21 +314,19 @@ def main():
     print("\n  Loading best federated checkpoint for final test evaluation...")
     global_student.load_state_dict(torch.load(best_federated_path, map_location=device, weights_only=True))
 
-    print("\n  Final evaluation on validation split (with TTA)...")
-    raw_val_metrics = evaluate(global_student, val_loader, device, calibrate_threshold=True, use_tta=True)
-    
-    # Re-evaluate with the calibrated threshold to display the true capability
+    # Learn optimal temperature for probability calibration (Guo et al., 2017)
+    print("\n  Calibrating temperature on validation set...")
+    from training.validate import learn_temperature
+    learned_temp = learn_temperature(global_student, val_loader, device)
+
+    print("\n  Final evaluation on validation split (with TTA + temperature scaling)...")
     final_val_metrics = evaluate(
-        global_student,
-        val_loader,
-        device,
-        threshold=raw_val_metrics["threshold"],
-        calibrate_threshold=False,
-        use_tta=True
+        global_student, val_loader, device,
+        calibrate_threshold=True, use_tta=True, temperature=learned_temp,
     )
     print_metrics("  [Federated Val (Calibrated)]", final_val_metrics)
 
-    print("\n  Final test evaluation using validation threshold (with TTA)...")
+    print("\n  Final test evaluation using validation threshold (with TTA + temperature scaling)...")
     final_test_metrics = evaluate(
         global_student,
         test_loader,
@@ -339,6 +334,7 @@ def main():
         threshold=final_val_metrics["threshold"],
         calibrate_threshold=False,
         use_tta=True,
+        temperature=learned_temp,
     )
     print_metrics("  [Federated Test]", final_test_metrics)
 
@@ -347,20 +343,21 @@ def main():
     best_round = max(range(len(history)), key=lambda i: history[i]["auc"])
     best_metrics = history[best_round]
 
-    print(f"\n{'='*60}")
+    print(f"\n{'='*75}")
     print(f"  FEDERATED PIPELINE COMPLETE")
     print(f"  Phase 1 (Teacher):    {_fmt_time(phase1_time)}")
     print(f"  Phase 2 (Federated):  {_fmt_time(phase2_time)}")
     print(f"  Total pipeline time:  {_fmt_time(total_time)}")
-    print(f"")
-    print(f"  Best round: {best_round + 1}/{num_rounds}")
-    print(f"  Best Val AUC: {best_metrics['auc']:.4f}")
-    print(f"  Best F1:    {best_metrics['f1']:.4f}")
-    print(f"  Best Acc:   {best_metrics['accuracy']:.4f}")
-    print(f"  Test AUC:   {final_test_metrics['auc']:.4f}")
+    print(f"\n  --- PERFORMANCE SUMMARY ---")
+    print(f"  {'Model':<22} | {'Split':<5} | {'AUC':<6} | {'F1':<6} | {'Acc':<6} | {'Prec':<6} | {'Rec':<6}")
+    print(f"  {'-'*71}")
+    print(f"  {'Teacher (Centralized)':<22} | {'Val':<5} | {metrics['auc']:.4f} | {metrics['f1']:.4f} | {metrics['accuracy']:.4f} | {metrics['precision']:.4f} | {metrics['recall']:.4f}")
+    print(f"  {f'Student (Round {best_round+1})':<22} | {'Val':<5} | {best_metrics['auc']:.4f} | {best_metrics['f1']:.4f} | {best_metrics['accuracy']:.4f} | {best_metrics['precision']:.4f} | {best_metrics['recall']:.4f}")
+    print(f"  {'Student (Calibrated)':<22} | {'Val':<5} | {final_val_metrics['auc']:.4f} | {final_val_metrics['f1']:.4f} | {final_val_metrics['accuracy']:.4f} | {final_val_metrics['precision']:.4f} | {final_val_metrics['recall']:.4f}")
+    print(f"  {'Student (Final)':<22} | {'Test':<5} | {final_test_metrics['auc']:.4f} | {final_test_metrics['f1']:.4f} | {final_test_metrics['accuracy']:.4f} | {final_test_metrics['precision']:.4f} | {final_test_metrics['recall']:.4f}")
     print(f"")
     print(f"  Run `python main.py` for centralized comparison.")
-    print(f"{'='*60}\n")
+    print(f"{'='*75}\n")
 
 if __name__ == "__main__":
     main()

@@ -33,6 +33,56 @@ def find_optimal_threshold(labels, probs):
     best_idx = int(np.argmax(f1_arr))
     return float(thresholds[best_idx]), float(f1_arr[best_idx])
 
+
+def learn_temperature(model, dataloader, device):
+    """
+    Learn a single temperature scalar T that minimizes NLL on the validation set.
+    (Guo et al., "On Calibration of Modern Neural Networks", ICML 2017)
+
+    After training, model logits are often miscalibrated (probabilities compressed
+    near 0 or 1). Temperature scaling divides logits by T before softmax:
+        calibrated_prob = softmax(logits / T)
+
+    T > 1 softens probabilities (spreads them toward 0.5).
+    T < 1 sharpens probabilities (spreads them toward 0 and 1).
+
+    This does NOT change the model's discriminative ability (AUC stays identical)
+    — it only fixes the probability scale so thresholds become meaningful.
+    """
+    model.eval()
+    all_logits = []
+    all_labels = []
+
+    with torch.no_grad():
+        for batch in dataloader:
+            x = batch["image"].to(device)
+            labels = batch["label"].to(device)
+            x_for = build_forensic_stack(x)
+            out = model(x, x_for)
+            all_logits.append(out["logits"])
+            all_labels.append(labels)
+
+    logits = torch.cat(all_logits, dim=0)  # (N, 2)
+    labels = torch.cat(all_labels, dim=0)  # (N,)
+
+    # Optimize temperature T using L-BFGS on NLL loss
+    temperature = torch.nn.Parameter(torch.ones(1, device=device))
+    optimizer = torch.optim.LBFGS([temperature], lr=0.01, max_iter=50)
+    nll_loss = torch.nn.CrossEntropyLoss()
+
+    def closure():
+        optimizer.zero_grad()
+        scaled_logits = logits / temperature
+        loss = nll_loss(scaled_logits, labels)
+        loss.backward()
+        return loss
+
+    optimizer.step(closure)
+    learned_T = temperature.item()
+    print(f"    [Calibration] Learned temperature T = {learned_T:.4f}")
+    return learned_T
+
+
 import torchvision.transforms.functional as TF
 
 def evaluate(
@@ -42,6 +92,7 @@ def evaluate(
     threshold=None,
     calibrate_threshold=False,
     use_tta=False,
+    temperature=1.0,
 ):
     """
     Evaluate a model (teacher or student) on a dataloader.
@@ -82,7 +133,7 @@ def evaluate(
 
                 # Unified forward: both teacher and student use (x_rgb, x_forensic)
                 out = model(x, x_for)
-                probs = torch.softmax(out["logits"], dim=1)[:, 1]
+                probs = torch.softmax(out["logits"] / temperature, dim=1)[:, 1]
             else:
                 aug_probs = []
                 augs = [
@@ -96,7 +147,7 @@ def evaluate(
                     x_aug = aug_fn(x)
                     x_for_aug = build_forensic_stack(x_aug)
                     out_aug = model(x_aug, x_for_aug)
-                    aug_probs.append(torch.softmax(out_aug["logits"], dim=1)[:, 1])
+                    aug_probs.append(torch.softmax(out_aug["logits"] / temperature, dim=1)[:, 1])
                 
                 # Average probabilities across all augmentations
                 probs = torch.stack(aug_probs, dim=0).mean(dim=0)
@@ -115,31 +166,31 @@ def evaluate(
 
     eval_time = time.time() - eval_start
 
-    # --- VIDEO-LEVEL AGGREGATION ---
+    # --- IMAGE-LEVEL AGGREGATION ---
     from collections import defaultdict
-    video_to_probs = defaultdict(list)
-    video_to_label = {}
-    video_to_gen = {}
+    image_to_probs = defaultdict(list)
+    image_to_label = {}
+    image_to_gen = {}
 
-    for v_id, prob, lbl, gen in zip(all_video_ids, all_probs, all_labels, all_gen_names):
-        video_to_probs[v_id].append(prob)
-        video_to_label[v_id] = lbl
-        video_to_gen[v_id] = gen
+    for img_id, prob, lbl, gen in zip(all_video_ids, all_probs, all_labels, all_gen_names):
+        image_to_probs[img_id].append(prob)
+        image_to_label[img_id] = lbl
+        image_to_gen[img_id] = gen
 
-    vid_labels_list = []
-    vid_probs_list = []
-    vid_gen_names_list = []
+    img_labels_list = []
+    img_probs_list = []
+    img_gen_names_list = []
 
-    for v_id, probs_list in video_to_probs.items():
-        vid_probs_list.append(np.mean(probs_list))
-        vid_labels_list.append(video_to_label[v_id])
-        vid_gen_names_list.append(video_to_gen[v_id])
+    for img_id, probs_list in image_to_probs.items():
+        img_probs_list.append(np.mean(probs_list))
+        img_labels_list.append(image_to_label[img_id])
+        img_gen_names_list.append(image_to_gen[img_id])
 
-    labels_np = np.array(vid_labels_list)
-    probs_np = np.array(vid_probs_list)
-    gen_names_np = np.array(vid_gen_names_list)
-    num_frames = len(all_labels)
-    num_videos = len(labels_np)
+    labels_np = np.array(img_labels_list)
+    probs_np = np.array(img_probs_list)
+    gen_names_np = np.array(img_gen_names_list)
+    num_samples = len(all_labels)
+    num_images = len(labels_np)
     # -------------------------------
 
     if threshold is not None:
@@ -158,7 +209,7 @@ def evaluate(
 
     returned_threshold = eval_threshold
 
-    print(f"    [Eval] Complete ({num_frames} frames -> {num_videos} videos in {eval_time:.1f}s)")
+    print(f"    [Eval] Complete ({num_samples} samples -> {num_images} images in {eval_time:.1f}s)")
     print(f"    [Eval] Eval Threshold: {eval_threshold:.3f} ({threshold_source})")
 
     preds_eval = (probs_np > eval_threshold).astype(int)
@@ -186,7 +237,7 @@ def evaluate(
     plt.close()
 
     # Per-generator evaluation
-    print(f"\n    [Eval] --- Per-Generator Breakdown (Video-Level) ---")
+    print(f"\n    [Eval] --- Per-Generator Breakdown (Image-Level) ---")
     unique_gens = set(gen_names_np)
     for gen in unique_gens:
         if gen == "real":

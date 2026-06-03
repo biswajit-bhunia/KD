@@ -1,12 +1,17 @@
-batch_size: 16
+batch_size: 64
 learning_rate: 0.0001          # safer than 0.0003 for MobileNetV2 + federated
 seed: 42
 deterministic: false           # true is more reproducible but can be slower
-train_roots: 
-  - "D:\\ff++_extracted"
-  - "C:\\Users\\sayan\\OneDrive\\Desktop\\federated-deepfake\\data"
-test_root: "D:\\DFDC_EXTRACTED"
-val_split_ratio: 0.2
+data_root: "./data"
+train_generators:
+  - "DDPM"
+  - "DeepFaceLab"
+  - "Stable Diffusion"
+  - "StyleGAN"
+val_generators:
+  - "DALL-E"
+test_generators:
+  - "NeuralTextures"
 aug_grayscale_p: 0.2
 aug_color_jitter_p: 0.3
 # Training Epochs
@@ -14,15 +19,15 @@ teacher_epochs: 10             # 5 was severe underfitting for 35M params (Issue
 student_epochs: 5
 
 # Loss weights
-lambda_kd: 0.0                 # disabled: for binary classification, logit KD only transfers bias
+lambda_kd: 0.5                 # enabled: transfers confidence and calibrates the student
 lambda_feat_kd: 0.5            # increased: all KD goes through feature embeddings (bias-free)
 
 # Temperatures
-temperature_kd: 4.0            # higher T softens Teacher's peaked distribution, reducing bias transfer
+temperature_kd: 2.0            # higher T softens Teacher's peaked distribution, reducing bias transfer
 
 num_clients: 2            # number of federated clients
-num_rounds: 10             # increased from 3 — model was still improving at round 3
+num_rounds: 8             # reduced from 10 — model peaks around round 7, avoids overfitting
 local_epochs: 2           # increased from 1 — 1 epoch per round is too few to learn
 clients_per_round: null   # null = all clients participate each round
-fedprox_mu: 0.01          # reduced from 0.2 — was preventing student from learning (Issue #8)
+fedprox_mu: 0.05          # increased from 0.01 — constrains local clients from diverging too much
 iid_partition: false      # false = non-IID (split by generator, realistic)

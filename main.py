@@ -70,27 +70,24 @@ def main():
     print(f"  λ_kd: {lambda_kd} | λ_feat: {lambda_feat_kd}")
     print(f"{'='*60}")
 
-    train_roots = config.get("train_roots", [config.get("train_root", "D:\\ff++_extracted")])
-    test_data_dir  = config.get("test_root", "D:\\DFDC_EXTRACTED")
-    val_split_ratio = config.get("val_split_ratio", 0.2)
+    data_root = config.get("data_root", "./data")
+    train_gens = config.get("train_generators", [])
+    val_gens = config.get("val_generators", [])
+    test_gens = config.get("test_generators", [])
 
-    ffpp_samples = []
+    print(f"\n  Loading all samples from {data_root}...")
     load_start = time.time()
-    for tr in train_roots:
-        print(f"\n  Loading Train/Val Dataset from {tr}...")
-        tr_samples = load_samples(tr)
-        print(f"  Loaded {len(tr_samples)} samples from {tr}")
-        ffpp_samples.extend(tr_samples)
-    
-    print(f"  Total Train/Val samples loaded: {len(ffpp_samples)} in {time.time() - load_start:.1f}s")
+    all_samples = load_samples(data_root)
+    print(f"  Loaded {len(all_samples)} total samples in {time.time() - load_start:.1f}s")
 
-    print(f"  Loading Test Dataset from {test_data_dir}...")
-    load_start = time.time()
-    test_samples = load_samples(test_data_dir)
-    print(f"  Loaded {len(test_samples)} test samples in {time.time() - load_start:.1f}s")
-
-    from data.split import split_by_video_identity
-    train_samples, val_samples = split_by_video_identity(ffpp_samples, test_size=val_split_ratio, random_state=seed)
+    from data.split import split_by_generator
+    train_samples, val_samples, test_samples = split_by_generator(
+        all_samples, 
+        train_gens, 
+        val_gens, 
+        test_gens, 
+        random_state=seed
+    )
 
     print(f"  Train: {len(train_samples)} | Val: {len(val_samples)} | Test: {len(test_samples)}")
 

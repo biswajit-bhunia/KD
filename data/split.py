@@ -90,6 +90,49 @@ def split_by_video_identity(samples, test_size=0.2, random_state=42):
         
     return train_samples, val_samples
 
+def split_by_generator(samples, train_gens, val_gens, test_gens, random_state=42):
+    """
+    Splits samples into train, val, and test based on generator names for fake images,
+    and randomly splits real images across the three sets.
+    """
+    train_samples = []
+    val_samples = []
+    test_samples = []
+    
+    real_samples = []
+    
+    for sample in samples:
+        path, label, gen_name = sample
+        if label == 0 or gen_name.lower() == "real":
+            real_samples.append(sample)
+        else:
+            if gen_name in train_gens:
+                train_samples.append(sample)
+            elif gen_name in val_gens:
+                val_samples.append(sample)
+            elif gen_name in test_gens:
+                test_samples.append(sample)
+                
+    # Randomly split real images (e.g. 70/15/15)
+    import random
+    rng = random.Random(random_state)
+    rng.shuffle(real_samples)
+    
+    n_real = len(real_samples)
+    n_train_real = int(0.7 * n_real)
+    n_val_real = int(0.15 * n_real)
+    
+    train_samples.extend(real_samples[:n_train_real])
+    val_samples.extend(real_samples[n_train_real:n_train_real + n_val_real])
+    test_samples.extend(real_samples[n_train_real + n_val_real:])
+    
+    print(f"  Split by generator:")
+    print(f"  Train: {len(train_samples)} (Fake gens: {train_gens})")
+    print(f"  Val:   {len(val_samples)} (Fake gens: {val_gens})")
+    print(f"  Test:  {len(test_samples)} (Fake gens: {test_gens})")
+    
+    return train_samples, val_samples, test_samples
+
 def find_cross_split_duplicates(splits_dict):
     """Placeholder to maintain compatibility."""
     return []
