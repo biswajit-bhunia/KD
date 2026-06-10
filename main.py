@@ -133,10 +133,6 @@ def main():
     val_dataset   = DeepfakeDataset(val_samples,   augment=False)
     test_dataset  = DeepfakeDataset(test_samples,  augment=False)
 
-    train_labels = [s[1] for s in train_samples]
-    counts  = Counter(train_labels)
-    class_weights = torch.tensor([1.0 / counts[0], 1.0 / counts[1]], dtype=torch.float32).to(device)
-
     def _build_train_loader(dataset, loader_seed):
         gen = make_generator(loader_seed)
         return DataLoader(

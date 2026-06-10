@@ -188,18 +188,6 @@ def main():
     from collections import Counter
     train_labels = [s[1] for s in train_samples]
     counts = Counter(train_labels)
-    # We are using a WeightedRandomSampler to balance the batches perfectly.
-    # However, for the Teacher, applying class_weights on top of the sampler acts as an 
-    # extreme "Anomaly Detection" bias. It forces the 35M param ResNet to over-index on 
-    # pristine Reals (25x importance), which empirically yields much higher validation AUC 
-    # on unseen deepfakes. We will use this for the Teacher, but disable it for the Student.
-    n_real = counts[0]
-    n_fake = counts[1]
-    n_total = n_real + n_fake
-    w_real = n_total / (2.0 * max(n_real, 1))
-    w_fake = n_total / (2.0 * max(n_fake, 1))
-    class_weights = torch.tensor([w_real, w_fake], dtype=torch.float32).to(device)
-    print(f"  Teacher Class weights: real={w_real:.2f}, fake={w_fake:.2f} (Anomaly Detection Mode)")
 
     teacher_generator = make_generator(seed)
     # Create a WeightedRandomSampler to ensure 50/50 real/fake in every batch.
