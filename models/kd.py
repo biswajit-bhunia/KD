@@ -90,8 +90,9 @@ class MultiLevelKD(nn.Module):
         loss_embedding = self.feat_loss(student_emb, teacher_emb)
 
         # Logits-level KD
+        student_logits = student_out.get("clean_logits", student_out["logits"])
         loss_logits = self._logits_kd(
-            student_out["logits"],
+            student_logits,
             teacher_out["logits"].detach(),
         )
 

@@ -78,6 +78,40 @@ def main():
     print(f"\n  Loading all samples from {data_root}...")
     load_start = time.time()
     all_samples = load_samples(data_root)
+    
+    max_real = config.get("max_real_samples")
+    max_fake = config.get("max_fake_samples")
+    
+    if max_real is not None or max_fake is not None:
+        import random
+        rng = random.Random(seed)
+        reals = [s for s in all_samples if s[1] == 0]
+        fakes = [s for s in all_samples if s[1] == 1]
+        
+        if max_real is not None and len(reals) > max_real:
+            rng.shuffle(reals)
+            reals = reals[:max_real]
+            
+        if max_fake is not None and len(fakes) > max_fake:
+            from collections import defaultdict
+            fakes_by_gen = defaultdict(list)
+            for s in fakes:
+                fakes_by_gen[s[2]].append(s)
+            
+            fakes_sub = []
+            gens = list(fakes_by_gen.keys())
+            if len(gens) > 0:
+                per_gen = max_fake // len(gens)
+                remainder = max_fake % len(gens)
+                for i, gen in enumerate(gens):
+                    rng.shuffle(fakes_by_gen[gen])
+                    take = per_gen + (1 if i < remainder else 0)
+                    fakes_sub.extend(fakes_by_gen[gen][:take])
+            fakes = fakes_sub
+            
+        all_samples = reals + fakes
+        print(f"  Subsampled dataset to {len(reals)} real and {len(fakes)} fake samples.")
+
     print(f"  Loaded {len(all_samples)} total samples in {time.time() - load_start:.1f}s")
 
     from data.split import split_by_generator
@@ -162,7 +196,7 @@ def main():
         optimizer=teacher_opt,
         device=device,
         epochs=teacher_epochs,
-        class_weights=class_weights,
+        class_weights=None,
     )
 
     print("\n  Evaluating teacher...")

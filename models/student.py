@@ -214,8 +214,10 @@ class StudentModel(nn.Module):
 
         # Classification
         logits = self.classifier(E_fused_dropped)  # (B, num_classes)
+        clean_logits = self.classifier(E_fused)
 
         return {
             "embedding": E_fused,
             "logits": logits,
+            "clean_logits": clean_logits,
         }

@@ -30,82 +30,64 @@ def partition_by_generator(
         return _partition_by_generator(samples, num_clients, rng)
 
 def _partition_iid(samples, num_clients, rng):
-    """Group by video, shuffle videos, and split evenly across clients."""
-    from data.split import get_video_id
-    video_groups = defaultdict(list)
-    for s in samples:
-        video_groups[get_video_id(s[0], gen_id=s[2])].append(s)
-        
-    vids = list(video_groups.keys())
-    rng.shuffle(vids)
+    """Shuffle all samples and split evenly across clients."""
+    samples_copy = list(samples)
+    rng.shuffle(samples_copy)
 
     client_data = {i: [] for i in range(num_clients)}
-    chunk_size = len(vids) // num_clients
+    chunk_size = len(samples_copy) // num_clients
 
     for i in range(num_clients):
         start = i * chunk_size
-        end = start + chunk_size if i < num_clients - 1 else len(vids)
-        for vid in vids[start:end]:
-            client_data[i].extend(video_groups[vid])
+        end = start + chunk_size if i < num_clients - 1 else len(samples_copy)
+        client_data[i].extend(samples_copy[start:end])
 
     return client_data
 
 def _partition_by_generator(samples, num_clients, rng):
     """
-    Non-IID partitioning: group frames by video identity. Assign real videos evenly 
-    across all clients. Assign fake videos from specific generators to assigned clients.
+    Non-IID partitioning: Assign real images evenly across all clients. 
+    Assign fake images from specific generators to assigned clients.
     """
-    from data.split import get_video_id
-    
-    # Group real and fake samples by video identity
-    real_videos = defaultdict(list)
-    fake_by_gen_videos = defaultdict(lambda: defaultdict(list))
-    
+    # Group real and fake samples
+    real_samples = [s for s in samples if s[1] == 0]
+    fake_by_gen = defaultdict(list)
     for s in samples:
-        vid = get_video_id(s[0], gen_id=s[2])
-        if s[1] == 0:
-            real_videos[vid].append(s)
-        else:
-            fake_by_gen_videos[s[2]][vid].append(s)
+        if s[1] == 1:
+            fake_by_gen[s[2]].append(s)
 
-    generator_ids = sorted(fake_by_gen_videos.keys())
+    generator_ids = sorted(fake_by_gen.keys())
     
     # Assign ALL generators to clients via round-robin.
-    # Old code iterated over num_clients, silently dropping generators when
-    # len(generators) > num_clients (e.g. 4 generators, 2 clients → 2 dropped).
     gen_to_clients = defaultdict(list)
     for i, gen_id in enumerate(generator_ids):
         client_id = i % num_clients
         gen_to_clients[gen_id].append(client_id)
 
-    # Distribute real videos evenly across all clients
-    real_vids = list(real_videos.keys())
-    rng.shuffle(real_vids)
-    real_vids_per_client = len(real_vids) // num_clients
-
     client_data = defaultdict(list)
     
-    # Allocate real frames for all clients
+    # Distribute real images evenly across all clients
+    rng.shuffle(real_samples)
+    reals_per_client = len(real_samples) // num_clients
+    
     for client_id in range(num_clients):
-        start = client_id * real_vids_per_client
-        end = start + real_vids_per_client if client_id < num_clients - 1 else len(real_vids)
-        for vid in real_vids[start:end]:
-            client_data[client_id].extend(real_videos[vid])
+        start = client_id * reals_per_client
+        end = start + reals_per_client if client_id < num_clients - 1 else len(real_samples)
+        client_data[client_id].extend(real_samples[start:end])
 
-    # Distribute fake videos by splitting generator fakes among assigned clients
+    # Distribute fake images by splitting generator fakes among assigned clients
     for gen_id, clients in gen_to_clients.items():
-        gen_vids = list(fake_by_gen_videos[gen_id].keys())
-        rng.shuffle(gen_vids)
-        vids_per_chunk = len(gen_vids) // len(clients)
+        gen_samples = fake_by_gen[gen_id]
+        rng.shuffle(gen_samples)
+        samples_per_chunk = len(gen_samples) // len(clients)
         
         for idx, client_id in enumerate(clients):
-            start = idx * vids_per_chunk
-            end = start + vids_per_chunk if idx < len(clients) - 1 else len(gen_vids)
-            for vid in gen_vids[start:end]:
-                client_data[client_id].extend(fake_by_gen_videos[gen_id][vid])
+            start = idx * samples_per_chunk
+            end = start + samples_per_chunk if idx < len(clients) - 1 else len(gen_samples)
+            client_data[client_id].extend(gen_samples[start:end])
                 
-            if len(gen_vids[start:end]) == 0:
-                print(f"  \u26a0  Client {client_id} has 0 fake videos from generator {gen_id}.")
+            if len(gen_samples[start:end]) == 0:
+                print(f"  \u26a0  Client {client_id} has 0 fake images from generator {gen_id}.")
 
     return dict(client_data)
 

@@ -2,3 +2,5 @@ datasetv1/
 venv/
 checkpoints/
 __pycache__/
+data/real/
+data/fake/

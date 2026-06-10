@@ -128,7 +128,7 @@ class FederatedClient:
         # Freeze BN statistics entirely to prevent Non-IID corruption.
         # ImageNet pretrained layers preserve their high-quality statistics,
         # while randomly initialized layers will rely on their learnable affine parameters.
-        for module in student.modules():
+        for module in student.semantic_student.modules():
             if isinstance(module, nn.BatchNorm2d):
                 module.eval()
 
@@ -145,6 +145,14 @@ class FederatedClient:
         # Single LR for all params — differential LR compounds with round-level cosine
         # decay, making backbone LR near-zero by round 2.
         optimizer = torch.optim.Adam(student.parameters(), lr=effective_lr)
+        
+        if hasattr(self, 'optimizer_state') and self.optimizer_state is not None:
+            try:
+                optimizer.load_state_dict(self.optimizer_state)
+                for group in optimizer.param_groups:
+                    group['lr'] = effective_lr
+            except Exception as e:
+                print(f"      [Client {self.client_id}] Warning: Could not load optimizer state: {e}")
 
         scaler = torch.amp.GradScaler(self.device.type, enabled=self.device.type == "cuda")
 
@@ -218,5 +226,7 @@ class FederatedClient:
 
         client_time = time.time() - client_start
         print(f"      [Client {self.client_id}] Local training done in {_fmt_time(client_time)}")
+
+        self.optimizer_state = copy.deepcopy(optimizer.state_dict())
 
         return student.state_dict()

@@ -1,17 +1,26 @@
-batch_size: 64
+batch_size: 128
 learning_rate: 0.0001          # safer than 0.0003 for MobileNetV2 + federated
 seed: 42
 deterministic: false           # true is more reproducible but can be slower
 data_root: "./data"
+max_real_samples: 2000         # Set to integer to limit real images (e.g. 5000)
+max_fake_samples: 2000         # Set to integer to limit fake images (e.g. 5000)
+
 train_generators:
-  - "DDPM"
-  - "DeepFaceLab"
-  - "Stable Diffusion"
-  - "StyleGAN"
+  - "DDPM"       # Pixel-space diffusion
+  - "DDIM"       # Pixel-space diffusion
+  - "stylegan2"  # GAN family
+  - "DiffSwap"   # Face-swap GAN
+
 val_generators:
-  - "DALL-E"
+  - "ADM"        # Pixel-space diffusion (unseen architecture)
+  - "LDM"        # Latent diffusion (unseen family — gentle step up)
+  - "stylegan"   # GAN (intra-family generalization check)
+
 test_generators:
-  - "NeuralTextures"
+  - "PNDM"       # Pixel-space diffusion (unseen sampler)
+  - "SDv15"      # Latent diffusion (hard zero-shot)
+  - "SDv21"      # Latent diffusion (hardest zero-shot)
 aug_grayscale_p: 0.2
 aug_color_jitter_p: 0.3
 # Training Epochs
