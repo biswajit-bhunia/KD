@@ -1,0 +1,475 @@
+  Creating federated clients...
+    Client 0: 2166 samples | 2 generators ['DDIM', 'stylegan2'] | 17 batches
+    Client 1: 1666 samples | 1 generators ['DDPM'] | 14 batches
+    Client 2: 1668 samples | 1 generators ['DiffSwap'] | 14 batches
+  3 clients created in 0.0s
+
+------------------------------------------------------------
+  PHASE 2: Federated Student Training
+------------------------------------------------------------
+
+============================================================
+  Federated Training Configuration
+  Rounds: 8 | Clients/round: 3/3
+  Local epochs: 2 | LR: 0.0001
+  FedProx μ: 0.05 | λ_kd: 0.5 | λ_feat: 0.5
+============================================================
+
+
+--------------------------------------------------
+  ROUND 1/8
+--------------------------------------------------
+  Selected clients: [0, 1, 2] (5500 total samples)
+
+    >- Client 0 (1/3) | 2166 samples | 2 generators
+      [Client 0] LR this round: 0.000100
+      [Client 0] Epoch 1/2 | Loss: 0.9569 | Time: 1m 14s | ETA: 1m 14s
+      [Client 0] Epoch 2/2 | Loss: 0.6972 | Time: 44.0s | ETA: 0.0s
+      [Client 0] Local training done in 1m 58s
+    <- Client 0 complete
+
+    >- Client 1 (2/3) | 1666 samples | 1 generators
+      [Client 1] LR this round: 0.000100
+      [Client 1] Epoch 1/2 | Loss: 0.7432 | Time: 28.7s | ETA: 28.7s
+      [Client 1] Epoch 2/2 | Loss: 0.5278 | Time: 17.7s | ETA: 0.0s
+      [Client 1] Local training done in 46.4s
+    <- Client 1 complete
+
+    >- Client 2 (3/3) | 1668 samples | 1 generators
+      [Client 2] LR this round: 0.000100
+      [Client 2] Epoch 1/2 | Loss: 0.9787 | Time: 28.6s | ETA: 28.6s
+      [Client 2] Epoch 2/2 | Loss: 0.6118 | Time: 18.4s | ETA: 0.0s
+      [Client 2] Local training done in 47.1s
+    <- Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.05s
+
+  Evaluating global model...
+    [Eval] Batch 9/18 (50%) | Elapsed: 6.2s
+    [Eval] Batch 18/18 (100%) | Elapsed: 11.4s
+    [Eval] Complete (2250 samples -> 2250 images in 11.4s)
+    [Eval] Eval Threshold: 0.411 (calibrated)
+
+    [Eval] --- Per-Generator Breakdown (Image-Level) ---
+    [Eval] ADM             | Acc: 0.9456 | F1: 0.9357 | AUC: 0.9838
+    [Eval] stylegan        | Acc: 0.9208 | F1: 0.9036 | AUC: 0.9617
+    [Eval] LDM             | Acc: 0.9488 | F1: 0.9397 | AUC: 0.9920
+
+  === Round 1/8 Results ===
+  | Accuracy:  0.9533
+  | Precision: 0.9586
+  | Recall:    0.9720
+  | F1:        0.9652
+  | AUC:       0.9792
+  ---
+  | Round time: 3m 43s | Total elapsed: 3m 43s | ETA: 26m 7s
+  ===
+  ★ New best model! AUC: 0.9792 → saved to checkpoints/student_federated_best.pth
+
+--------------------------------------------------
+  ROUND 2/8
+--------------------------------------------------
+  Selected clients: [0, 1, 2] (5500 total samples)
+
+    >- Client 0 (1/3) | 2166 samples | 2 generators
+      [Client 0] LR this round: 0.000097
+      [Client 0] Epoch 1/2 | Loss: 0.6019 | Time: 47.7s | ETA: 47.7s
+      [Client 0] Epoch 2/2 | Loss: 0.5126 | Time: 43.7s | ETA: 0.0s
+      [Client 0] Local training done in 1m 31s
+    <- Client 0 complete
+
+    >- Client 1 (2/3) | 1666 samples | 1 generators
+      [Client 1] LR this round: 0.000097
+      [Client 1] Epoch 1/2 | Loss: 0.3201 | Time: 19.0s | ETA: 19.0s
+      [Client 1] Epoch 2/2 | Loss: 0.2229 | Time: 18.8s | ETA: 0.0s
+      [Client 1] Local training done in 37.8s
+    <- Client 1 complete
+
+    >- Client 2 (3/3) | 1668 samples | 1 generators
+      [Client 2] LR this round: 0.000097
+      [Client 2] Epoch 1/2 | Loss: 0.5942 | Time: 21.0s | ETA: 21.0s
+      [Client 2] Epoch 2/2 | Loss: 0.6704 | Time: 20.0s | ETA: 0.0s
+      [Client 2] Local training done in 41.1s
+    <- Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.05s
+
+  Evaluating global model...
+    [Eval] Batch 9/18 (50%) | Elapsed: 6.2s
+    [Eval] Batch 18/18 (100%) | Elapsed: 8.5s
+    [Eval] Complete (2250 samples -> 2250 images in 8.5s)
+    [Eval] Eval Threshold: 0.419 (calibrated)
+
+    [Eval] --- Per-Generator Breakdown (Image-Level) ---
+    [Eval] ADM             | Acc: 0.9464 | F1: 0.9371 | AUC: 0.9936
+    [Eval] stylegan        | Acc: 0.9352 | F1: 0.9229 | AUC: 0.9811
+    [Eval] LDM             | Acc: 0.9448 | F1: 0.9351 | AUC: 0.9912
+
+  === Round 2/8 Results ===
+  | Accuracy:  0.9622
+  | Precision: 0.9573
+  | Recall:    0.9873
+  | F1:        0.9721
+  | AUC:       0.9886
+  ---
+  | Round time: 2m 59s | Total elapsed: 6m 43s | ETA: 20m 10s
+  ===
+  ★ New best model! AUC: 0.9886 → saved to checkpoints/student_federated_best.pth
+
+--------------------------------------------------
+  ROUND 3/8
+--------------------------------------------------
+  Selected clients: [0, 1, 2] (5500 total samples)
+
+    >- Client 0 (1/3) | 2166 samples | 2 generators
+      [Client 0] LR this round: 0.000090
+      [Client 0] Epoch 1/2 | Loss: 0.4841 | Time: 48.8s | ETA: 48.8s
+      [Client 0] Epoch 2/2 | Loss: 0.3610 | Time: 45.7s | ETA: 0.0s
+      [Client 0] Local training done in 1m 34s
+    <- Client 0 complete
+
+    >- Client 1 (2/3) | 1666 samples | 1 generators
+      [Client 1] LR this round: 0.000090
+      [Client 1] Epoch 1/2 | Loss: 0.2624 | Time: 20.1s | ETA: 20.1s
+      [Client 1] Epoch 2/2 | Loss: 0.2291 | Time: 19.8s | ETA: 0.0s
+      [Client 1] Local training done in 40.0s
+    <- Client 1 complete
+
+    >- Client 2 (3/3) | 1668 samples | 1 generators
+      [Client 2] LR this round: 0.000090
+      [Client 2] Epoch 1/2 | Loss: 0.4273 | Time: 19.9s | ETA: 19.9s
+      [Client 2] Epoch 2/2 | Loss: 0.3377 | Time: 20.1s | ETA: 0.0s
+      [Client 2] Local training done in 40.1s
+    <- Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.05s
+
+  Evaluating global model...
+    [Eval] Batch 9/18 (50%) | Elapsed: 6.1s
+    [Eval] Batch 18/18 (100%) | Elapsed: 8.3s
+    [Eval] Complete (2250 samples -> 2250 images in 8.4s)
+    [Eval] Eval Threshold: 0.137 (calibrated)
+
+    [Eval] --- Per-Generator Breakdown (Image-Level) ---
+    [Eval] ADM             | Acc: 0.9576 | F1: 0.9496 | AUC: 0.9991
+    [Eval] stylegan        | Acc: 0.9512 | F1: 0.9415 | AUC: 0.9941
+    [Eval] LDM             | Acc: 0.9360 | F1: 0.9219 | AUC: 0.9815
+
+  === Round 3/8 Results ===
+  | Accuracy:  0.9600
+  | Precision: 0.9657
+  | Recall:    0.9747
+  | F1:        0.9701
+  | AUC:       0.9916
+  ---
+  | Round time: 3m 3s | Total elapsed: 9m 47s | ETA: 16m 18s
+  ===
+  ★ New best model! AUC: 0.9916 → saved to checkpoints/student_federated_best.pth
+
+--------------------------------------------------
+  ROUND 4/8
+--------------------------------------------------
+  Selected clients: [0, 1, 2] (5500 total samples)
+
+    >- Client 0 (1/3) | 2166 samples | 2 generators
+      [Client 0] LR this round: 0.000078
+      [Client 0] Epoch 1/2 | Loss: 0.3989 | Time: 44.9s | ETA: 44.9s
+      [Client 0] Epoch 2/2 | Loss: 0.4413 | Time: 43.5s | ETA: 0.0s
+      [Client 0] Local training done in 1m 28s
+    <- Client 0 complete
+
+    >- Client 1 (2/3) | 1666 samples | 1 generators
+      [Client 1] LR this round: 0.000078
+      [Client 1] Epoch 1/2 | Loss: 0.1981 | Time: 19.5s | ETA: 19.5s
+      [Client 1] Epoch 2/2 | Loss: 0.2030 | Time: 19.2s | ETA: 0.0s
+      [Client 1] Local training done in 38.8s
+    <- Client 1 complete
+
+    >- Client 2 (3/3) | 1668 samples | 1 generators
+      [Client 2] LR this round: 0.000078
+      [Client 2] Epoch 1/2 | Loss: 0.3300 | Time: 19.5s | ETA: 19.5s
+      [Client 2] Epoch 2/2 | Loss: 0.3031 | Time: 20.7s | ETA: 0.0s
+      [Client 2] Local training done in 40.3s
+    <- Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.05s
+
+  Evaluating global model...
+    [Eval] Batch 9/18 (50%) | Elapsed: 6.2s
+    [Eval] Batch 18/18 (100%) | Elapsed: 8.4s
+    [Eval] Complete (2250 samples -> 2250 images in 8.4s)
+    [Eval] Eval Threshold: 0.291 (calibrated)
+
+    [Eval] --- Per-Generator Breakdown (Image-Level) ---
+    [Eval] ADM             | Acc: 0.9680 | F1: 0.9615 | AUC: 0.9998
+    [Eval] stylegan        | Acc: 0.9656 | F1: 0.9585 | AUC: 0.9980
+    [Eval] LDM             | Acc: 0.9336 | F1: 0.9166 | AUC: 0.9783
+
+  === Round 4/8 Results ===
+  | Accuracy:  0.9609
+  | Precision: 0.9738
+  | Recall:    0.9673
+  | F1:        0.9706
+  | AUC:       0.9920
+  ---
+  | Round time: 2m 56s | Total elapsed: 12m 43s | ETA: 12m 43s
+  ===
+  ★ New best model! AUC: 0.9920 → saved to checkpoints/student_federated_best.pth
+
+--------------------------------------------------
+  ROUND 5/8
+--------------------------------------------------
+  Selected clients: [0, 1, 2] (5500 total samples)
+
+    >- Client 0 (1/3) | 2166 samples | 2 generators
+      [Client 0] LR this round: 0.000065
+      [Client 0] Epoch 1/2 | Loss: 0.3617 | Time: 42.3s | ETA: 42.3s
+      [Client 0] Epoch 2/2 | Loss: 0.2804 | Time: 40.9s | ETA: 0.0s
+      [Client 0] Local training done in 1m 23s
+    <- Client 0 complete
+
+    >- Client 1 (2/3) | 1666 samples | 1 generators
+      [Client 1] LR this round: 0.000065
+      [Client 1] Epoch 1/2 | Loss: 0.2193 | Time: 19.1s | ETA: 19.1s
+      [Client 1] Epoch 2/2 | Loss: 0.1976 | Time: 18.8s | ETA: 0.0s
+      [Client 1] Local training done in 37.9s
+    <- Client 1 complete
+
+    >- Client 2 (3/3) | 1668 samples | 1 generators
+      [Client 2] LR this round: 0.000065
+      [Client 2] Epoch 1/2 | Loss: 0.2647 | Time: 20.2s | ETA: 20.2s
+      [Client 2] Epoch 2/2 | Loss: 0.2478 | Time: 19.7s | ETA: 0.0s
+      [Client 2] Local training done in 39.9s
+    <- Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.05s
+
+  Evaluating global model...
+    [Eval] Batch 9/18 (50%) | Elapsed: 6.2s
+    [Eval] Batch 18/18 (100%) | Elapsed: 8.3s
+    [Eval] Complete (2250 samples -> 2250 images in 8.4s)
+    [Eval] Eval Threshold: 0.263 (calibrated)
+
+    [Eval] --- Per-Generator Breakdown (Image-Level) ---
+    [Eval] ADM             | Acc: 0.9784 | F1: 0.9737 | AUC: 0.9999
+    [Eval] stylegan        | Acc: 0.9776 | F1: 0.9727 | AUC: 0.9991
+    [Eval] LDM             | Acc: 0.9544 | F1: 0.9428 | AUC: 0.9876
+
+  === Round 5/8 Results ===
+  | Accuracy:  0.9742
+  | Precision: 0.9820
+  | Recall:    0.9793
+  | F1:        0.9806
+  | AUC:       0.9955
+  ---
+  | Round time: 2m 50s | Total elapsed: 15m 33s | ETA: 9m 20s
+  ===
+  ★ New best model! AUC: 0.9955 → saved to checkpoints/student_federated_best.pth
+
+--------------------------------------------------
+  ROUND 6/8
+--------------------------------------------------
+  Selected clients: [0, 1, 2] (5500 total samples)
+
+    >- Client 0 (1/3) | 2166 samples | 2 generators
+      [Client 0] LR this round: 0.000052
+      [Client 0] Epoch 1/2 | Loss: 0.2708 | Time: 40.9s | ETA: 40.9s
+      [Client 0] Epoch 2/2 | Loss: 0.2989 | Time: 43.0s | ETA: 0.0s
+      [Client 0] Local training done in 1m 23s
+    <- Client 0 complete
+
+    >- Client 1 (2/3) | 1666 samples | 1 generators
+      [Client 1] LR this round: 0.000052
+      [Client 1] Epoch 1/2 | Loss: 0.1847 | Time: 18.8s | ETA: 18.8s
+      [Client 1] Epoch 2/2 | Loss: 0.1771 | Time: 19.0s | ETA: 0.0s
+      [Client 1] Local training done in 37.8s
+    <- Client 1 complete
+
+    >- Client 2 (3/3) | 1668 samples | 1 generators
+      [Client 2] LR this round: 0.000052
+      [Client 2] Epoch 1/2 | Loss: 0.2249 | Time: 19.7s | ETA: 19.7s
+      [Client 2] Epoch 2/2 | Loss: 0.2134 | Time: 19.8s | ETA: 0.0s
+      [Client 2] Local training done in 39.6s
+    <- Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.05s
+
+  Evaluating global model...
+    [Eval] Batch 9/18 (50%) | Elapsed: 6.1s
+    [Eval] Batch 18/18 (100%) | Elapsed: 8.2s
+    [Eval] Complete (2250 samples -> 2250 images in 8.3s)
+    [Eval] Eval Threshold: 0.303 (calibrated)
+
+    [Eval] --- Per-Generator Breakdown (Image-Level) ---
+    [Eval] ADM             | Acc: 0.9720 | F1: 0.9662 | AUC: 1.0000
+    [Eval] stylegan        | Acc: 0.9712 | F1: 0.9652 | AUC: 0.9993
+    [Eval] LDM             | Acc: 0.9376 | F1: 0.9214 | AUC: 0.9835
+
+  === Round 6/8 Results ===
+  | Accuracy:  0.9649
+  | Precision: 0.9765
+  | Recall:    0.9707
+  | F1:        0.9736
+  | AUC:       0.9942
+  ---
+  | Round time: 2m 50s | Total elapsed: 18m 23s | ETA: 6m 7s
+  ===
+
+--------------------------------------------------
+  ROUND 7/8
+--------------------------------------------------
+  Selected clients: [0, 1, 2] (5500 total samples)
+
+    >- Client 0 (1/3) | 2166 samples | 2 generators
+      [Client 0] LR this round: 0.000040
+      [Client 0] Epoch 1/2 | Loss: 0.2974 | Time: 42.7s | ETA: 42.7s
+      [Client 0] Epoch 2/2 | Loss: 0.2449 | Time: 45.1s | ETA: 0.0s
+      [Client 0] Local training done in 1m 27s
+    <- Client 0 complete
+
+    >- Client 1 (2/3) | 1666 samples | 1 generators
+      [Client 1] LR this round: 0.000040
+      [Client 1] Epoch 1/2 | Loss: 0.2002 | Time: 19.3s | ETA: 19.3s
+      [Client 1] Epoch 2/2 | Loss: 0.1652 | Time: 19.6s | ETA: 0.0s
+      [Client 1] Local training done in 39.0s
+    <- Client 1 complete
+
+    >- Client 2 (3/3) | 1668 samples | 1 generators
+      [Client 2] LR this round: 0.000040
+      [Client 2] Epoch 1/2 | Loss: 0.2300 | Time: 19.8s | ETA: 19.8s
+      [Client 2] Epoch 2/2 | Loss: 0.3011 | Time: 19.5s | ETA: 0.0s
+      [Client 2] Local training done in 39.4s
+    <- Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.05s
+
+  Evaluating global model...
+    [Eval] Batch 9/18 (50%) | Elapsed: 6.1s
+    [Eval] Batch 18/18 (100%) | Elapsed: 8.2s
+    [Eval] Complete (2250 samples -> 2250 images in 8.3s)
+    [Eval] Eval Threshold: 0.097 (calibrated)
+
+    [Eval] --- Per-Generator Breakdown (Image-Level) ---
+    [Eval] ADM             | Acc: 0.9848 | F1: 0.9814 | AUC: 1.0000
+    [Eval] stylegan        | Acc: 0.9848 | F1: 0.9814 | AUC: 0.9995
+    [Eval] LDM             | Acc: 0.9616 | F1: 0.9515 | AUC: 0.9899
+
+  === Round 7/8 Results ===
+  | Accuracy:  0.9787
+  | Precision: 0.9872
+  | Recall:    0.9807
+  | F1:        0.9839
+  | AUC:       0.9965
+  ---
+  | Round time: 2m 54s | Total elapsed: 21m 18s | ETA: 3m 2s
+  ===
+  ★ New best model! AUC: 0.9965 → saved to checkpoints/student_federated_best.pth
+
+--------------------------------------------------
+  ROUND 8/8
+--------------------------------------------------
+  Selected clients: [0, 1, 2] (5500 total samples)
+
+    >- Client 0 (1/3) | 2166 samples | 2 generators
+      [Client 0] LR this round: 0.000033
+      [Client 0] Epoch 1/2 | Loss: 0.2851 | Time: 43.5s | ETA: 43.5s
+      [Client 0] Epoch 2/2 | Loss: 0.2135 | Time: 41.6s | ETA: 0.0s
+      [Client 0] Local training done in 1m 25s
+    <- Client 0 complete
+
+    >- Client 1 (2/3) | 1666 samples | 1 generators
+      [Client 1] LR this round: 0.000033
+      [Client 1] Epoch 1/2 | Loss: 0.1652 | Time: 19.1s | ETA: 19.1s
+      [Client 1] Epoch 2/2 | Loss: 0.3119 | Time: 18.8s | ETA: 0.0s
+      [Client 1] Local training done in 38.0s
+    <- Client 1 complete
+
+    >- Client 2 (3/3) | 1668 samples | 1 generators
+      [Client 2] LR this round: 0.000033
+      [Client 2] Epoch 1/2 | Loss: 0.2963 | Time: 19.6s | ETA: 19.6s
+      [Client 2] Epoch 2/2 | Loss: 0.2139 | Time: 19.5s | ETA: 0.0s
+      [Client 2] Local training done in 39.1s
+    <- Client 2 complete
+
+  Aggregating 3 client updates...
+  Aggregation done in 0.05s
+
+  Evaluating global model...
+    [Eval] Batch 9/18 (50%) | Elapsed: 6.1s
+    [Eval] Batch 18/18 (100%) | Elapsed: 8.3s
+    [Eval] Complete (2250 samples -> 2250 images in 8.3s)
+    [Eval] Eval Threshold: 0.381 (calibrated)
+
+    [Eval] --- Per-Generator Breakdown (Image-Level) ---
+    [Eval] ADM             | Acc: 0.9784 | F1: 0.9737 | AUC: 1.0000
+    [Eval] stylegan        | Acc: 0.9784 | F1: 0.9737 | AUC: 0.9997
+    [Eval] LDM             | Acc: 0.9368 | F1: 0.9190 | AUC: 0.9826
+
+  === Round 8/8 Results ===
+  | Accuracy:  0.9649
+  | Precision: 0.9817
+  | Recall:    0.9653
+  | F1:        0.9734
+  | AUC:       0.9941
+  ---
+  | Round time: 2m 51s | Total elapsed: 24m 9s | ETA: 0.0s
+  ===
+
+============================================================
+  FEDERATED TRAINING COMPLETE
+  Total time:  24m 9s
+  Best AUC:    0.9965
+  Total rounds: 8
+  Avg round:   3m 1s
+============================================================
+
+
+  Loading best federated checkpoint for final test evaluation...
+
+  Calibrating temperature on validation set...
+    [Calibration] Learned temperature T = 0.9297
+
+  Final evaluation on validation split (with TTA + temperature scaling)...
+    [Eval] Batch 9/18 (50%) | Elapsed: 10.8s
+    [Eval] Batch 18/18 (100%) | Elapsed: 20.5s
+    [Eval] Complete (2250 samples -> 2250 images in 20.6s)
+    [Eval] Eval Threshold: 0.191 (calibrated)
+
+    [Eval] --- Per-Generator Breakdown (Image-Level) ---
+    [Eval] ADM             | Acc: 0.9872 | F1: 0.9843 | AUC: 0.9999
+    [Eval] stylegan        | Acc: 0.9856 | F1: 0.9822 | AUC: 0.9990
+    [Eval] LDM             | Acc: 0.9816 | F1: 0.9772 | AUC: 0.9965
+  [Federated Val (Calibrated)] | Acc: 0.9889 | Prec: 0.9894 | Rec: 0.9940 | F1: 0.9917 | AUC: 0.9985
+
+  Final test evaluation using validation threshold (with TTA + temperature scaling)...
+    [Eval] Batch 9/18 (50%) | Elapsed: 11.0s
+    [Eval] Batch 18/18 (100%) | Elapsed: 20.7s
+    [Eval] Complete (2250 samples -> 2250 images in 20.7s)
+    [Eval] Eval Threshold: 0.191 (provided)
+
+    [Eval] --- Per-Generator Breakdown (Image-Level) ---
+    [Eval] PNDM            | Acc: 0.9848 | F1: 0.9813 | AUC: 0.9995
+    [Eval] SDv15           | Acc: 0.9760 | F1: 0.9701 | AUC: 0.9982
+    [Eval] SDv21           | Acc: 0.9776 | F1: 0.9722 | AUC: 0.9983
+  [Federated Test] | Acc: 0.9809 | Prec: 0.9886 | Rec: 0.9827 | F1: 0.9856 | AUC: 0.9986
+
+===========================================================================
+  FEDERATED PIPELINE COMPLETE
+  Phase 1 (Teacher):    4m 5s
+  Phase 2 (Federated):  24m 9s
+  Total pipeline time:  29m 5s
+
+  --- PERFORMANCE SUMMARY ---
+  Model                  | Split | AUC    | F1     | Acc    | Prec   | Rec   
+  -----------------------------------------------------------------------
+  Teacher (Centralized)  | Val   | 0.9991 | 0.9957 | 0.9942 | 0.9940 | 0.9973
+  Student (Round 7)      | Val   | 0.9965 | 0.9839 | 0.9787 | 0.9872 | 0.9807
+  Student (Calibrated)   | Val   | 0.9985 | 0.9917 | 0.9889 | 0.9894 | 0.9940
+  Student (Final)        | Test  | 0.9986 | 0.9856 | 0.9809 | 0.9886 | 0.9827

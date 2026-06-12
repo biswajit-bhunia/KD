@@ -3,24 +3,22 @@ learning_rate: 0.0001          # safer than 0.0003 for MobileNetV2 + federated
 seed: 42
 deterministic: false           # true is more reproducible but can be slower
 data_root: "./data"
-max_real_samples: 1000         # Set to integer to limit real images (e.g. 5000)
-max_fake_samples: 2000         # Set to integer to limit fake images (e.g. 5000)
+max_real_samples: 3000         # Set to integer to limit real images (e.g. 5000)
+max_fake_samples: 4000         # Set to integer to limit fake images (e.g. 5000)
 
 train_generators:
-  - "DDPM"       # Pixel-space diffusion
-  - "DDIM"       # Pixel-space diffusion
-  - "stylegan2"  # GAN family
-  - "DiffSwap"   # Face-swap GAN
-
+  - DDPM
+  - DDIM
+  - ADM
+  - PNDM
+  - stylegan2
+  - DiffSwap
 val_generators:
-  - "ADM"        # Pixel-space diffusion (unseen architecture)
-  - "LDM"        # Latent diffusion (unseen family — gentle step up)
-  - "stylegan"   # GAN (intra-family generalization check)
-
+  - stylegan
 test_generators:
-  - "PNDM"       # Pixel-space diffusion (unseen sampler)
-  - "SDv15"      # Latent diffusion (hard zero-shot)
-  - "SDv21"      # Latent diffusion (hardest zero-shot)
+  - LDM
+  - SDv15
+  - SDv21
 aug_grayscale_p: 0.2
 aug_color_jitter_p: 0.3
 # Training Epochs
@@ -38,5 +36,5 @@ num_clients: 2            # number of federated clients
 num_rounds: 8             # reduced from 10 — model peaks around round 7, avoids overfitting
 local_epochs: 2           # increased from 1 — 1 epoch per round is too few to learn
 clients_per_round: null   # null = all clients participate each round
-fedprox_mu: 0.05          # increased from 0.01 — constrains local clients from diverging too much
+fedprox_mu: 0.01          # increased from 0.01 — constrains local clients from diverging too much
 iid_partition: false      # false = non-IID (split by generator, realistic)

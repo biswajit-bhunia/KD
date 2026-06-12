@@ -225,7 +225,7 @@ def main():
         val_every=3,
         patience=6,
         temperature_kd=temp_kd,
-        class_weights=class_weights,
+        class_weights=None,
     )
 
     print("\n  Evaluating student...")
